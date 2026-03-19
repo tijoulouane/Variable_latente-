@@ -1,0 +1,7 @@
+"0","eig_tab <- data.frame("
+"0","  Composante = 1:10,"
+"0","  `Variance (%)` = round(res.pca$eig[1:10, 2], 2),"
+"0","  `Cumulée (%)` = round(res.pca$eig[1:10, 3], 2)"
+"0",")"
+"0","kbl(eig_tab, caption = ""Variance expliquée par les 10 premières CP"") |>"
+"0","  kable_styling(bootstrap_options = c(""striped"",""hover""), full_width = FALSE)"

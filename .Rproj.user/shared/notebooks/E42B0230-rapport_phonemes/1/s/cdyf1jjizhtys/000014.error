@@ -1,0 +1,1 @@
+{"frames":[{"func":"plot(perf_plsda, col = color.mixo(5:7), sd = TRUE, legend.position = \"horizontal\")","file":"","line_number":0,"end_line_number":0,"character_number":0,"end_character_number":0}],"message":"Erreur : objet 'perf_plsda' introuvable\n"}

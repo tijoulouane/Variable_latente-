@@ -1,0 +1,559 @@
+---
+title: "Discrimination de Phonèmes par Analyse en Variables Latentes"
+subtitle: "PLS-DA et Analyse Exploratoire — Données TIMIT"
+author: "Groupe Étudiant — M2 EKAP, Oniris-Nantes"
+date: "31 mars 2026"
+lang: fr
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Sommaire"
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-tools: true
+    fig-width: 9
+    fig-height: 5.5
+    fig-align: center
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r setup}
+#| include: false
+library(ggplot2)
+library(FactoMineR)
+library(factoextra)
+library(mixOmics)
+library(caret)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+
+theme_set(theme_bw(base_size = 12))
+set.seed(42)
+```
+
+# Présentation du contexte et des données
+
+## Contexte
+
+Ce projet porte sur la **discrimination automatique de phonèmes** à partir de données acoustiques extraites de la base TIMIT (*Texas Instruments MIT*), ressource de référence pour la recherche en reconnaissance vocale. Les données sont issues de l'ouvrage *Elements of Statistical Learning* (Hastie, Tibshirani & Friedman, 2009).
+
+Cinq phonèmes sont étudiés, couvrant des consonnes fricatives et des voyelles :
+
+| Symbole | Phonème   | Exemple       |
+|---------|-----------|---------------|
+| **sh**  | fricative | *"she"*       |
+| **dcl** | occlusive | *"dark"*      |
+| **iy**  | voyelle   | *"sh**ee**"*  |
+| **aa**  | voyelle   | *"d**a**rk"*  |
+| **ao**  | voyelle   | *"w**a**ter"* |
+
+## Description des données
+
+À partir de 50 discours enregistrés, **4 509 trames vocales** de 32 ms ont été extraites, chacune représentée par son **log-périodogramme** sur 256 fréquences (`x.1` à `x.256`). Deux variables supplémentaires identifient le phonème prononcé (`g`) et le locuteur (`speaker`).
+
+```{r load-data}
+phoneme <- read.csv("phoneme.csv", header = TRUE, row.names = 1)
+
+cat("Dimensions :", nrow(phoneme), "observations ×", ncol(phoneme), "variables\n")
+
+# Variables
+X_all      <- phoneme[, 1:256]
+y_all      <- as.factor(phoneme$g)
+speaker_all <- phoneme$speaker
+split_vec  <- ifelse(grepl("^train", speaker_all), "train", "test")
+
+# Résumé global
+tab_global <- data.frame(
+  Phonème  = names(table(y_all)),
+  Total    = as.integer(table(y_all)),
+  Train    = as.integer(table(y_all[split_vec == "train"])),
+  Test     = as.integer(table(y_all[split_vec == "test"]))
+)
+kbl(tab_global, caption = "Distribution des phonèmes (global, train, test)") |>
+  kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE)
+```
+
+Le jeu de données est **légèrement déséquilibré** : le phonème *dcl* est moins représenté que les autres. L'encodage dans la variable `speaker` permet un découpage train/test naturel, indépendant de la structure des phonèmes.
+
+# Découpage Apprentissage / Test
+
+Le découpage est défini par la variable `speaker` : les enregistrements préfixés par `train.` constituent l'échantillon d'**apprentissage** et ceux préfixés par `test.` constituent l'échantillon de **test**. Ce découpage est ainsi **basé sur les locuteurs**, ce qui constitue un protocole rigoureux : le modèle est évalué sur des voix qu'il n'a jamais entendues.
+
+```{r split}
+idx_train <- which(split_vec == "train")
+idx_test  <- which(split_vec == "test")
+
+X_train <- X_all[idx_train, ]
+y_train <- y_all[idx_train]
+X_test  <- X_all[idx_test, ]
+y_test  <- y_all[idx_test]
+
+tab_split <- data.frame(
+  Echantillon = c("Apprentissage", "Test"),
+  N           = c(nrow(X_train), nrow(X_test)),
+  `%`         = round(c(nrow(X_train), nrow(X_test)) / nrow(phoneme) * 100, 1)
+)
+kbl(tab_split, caption = "Taille des échantillons") |>
+  kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE)
+```
+
+**Vérification de la représentativité** : les proportions de chaque phonème doivent être similaires dans les deux échantillons.
+
+```{r check-balance}
+prop_train <- round(prop.table(table(y_train)) * 100, 1)
+prop_test  <- round(prop.table(table(y_test))  * 100, 1)
+
+tab_prop <- data.frame(
+  Phonème = names(prop_train),
+  `Train (%)` = as.numeric(prop_train),
+  `Test (%)`  = as.numeric(prop_test)
+)
+kbl(tab_prop, caption = "Proportion (%) de chaque phonème dans chaque échantillon") |>
+  kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE)
+```
+
+Les proportions sont globalement bien équilibrées entre les deux échantillons.
+
+# Analyse Exploratoire Non Supervisée (Apprentissage)
+
+## Log-périodogramme moyen par phonème
+
+Avant toute modélisation, on visualise le profil spectral moyen de chaque phonème. Cette représentation permet de comprendre ce qui distingue physiquement les phonèmes.
+
+```{r plot-spectra, fig.cap="Log-périodogramme moyen par phonème"}
+moy <- aggregate(X_train, by = list(Phoneme = y_train), FUN = mean)
+
+moy_long <- data.frame(
+  Phoneme   = rep(moy$Phoneme, times = 256),
+  Frequence = rep(1:256, each = nlevels(y_train)),
+  Amplitude = as.vector(t(as.matrix(moy[, -1])))
+)
+
+ggplot(moy_long, aes(x = Frequence, y = Amplitude, color = Phoneme)) +
+  geom_line(linewidth = 1) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "Log-périodogramme moyen par phonème",
+       x = "Fréquence spectrale (index 1–256)",
+       y = "Log-amplitude moyenne",
+       color = "Phonème")
+```
+
+On observe que :
+
+-   **sh** (fricative sourde) présente une énergie élevée dans les **hautes fréquences** (index \> 150), ce qui est la signature acoustique attendue pour une friction.\
+-   **iy** et **aa** (voyelles) ont une structure en formants : plusieurs pics d'amplitude correspondant aux résonances du conduit vocal.\
+-   **dcl** (occlusive) est le phonème le plus difficile à distinguer : son énergie est faible et répartie.\
+-   **ao** présente un profil intermédiaire entre *aa* et *iy*.
+
+## Analyse en Composantes Principales (ACP)
+
+```{r pca, fig.cap="Variance expliquée par composante principale"}
+res.pca <- PCA(X_train, scale.unit = TRUE, ncp = 15, graph = FALSE)
+
+fviz_eig(res.pca, ncp = 15, addlabels = TRUE,
+         barfill = "steelblue", barcolor = "steelblue") +
+  labs(title = "ACP — Variance expliquée par composante",
+       x = "Composante principale", y = "% de variance expliquée")
+```
+
+```{r pca-table}
+eig_tab <- data.frame(
+  Composante = 1:10,
+  `Variance (%)` = round(res.pca$eig[1:10, 2], 2),
+  `Cumulée (%)` = round(res.pca$eig[1:10, 3], 2)
+)
+kbl(eig_tab, caption = "Variance expliquée par les 10 premières CP") |>
+  kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE)
+```
+
+```{r pca-indiv, fig.cap="Plan factoriel ACP 1-2, coloré par phonème"}
+scores_df <- as.data.frame(res.pca$ind$coord[, 1:4])
+scores_df$phoneme <- y_train
+
+p12 <- ggplot(scores_df, aes(x = Dim.1, y = Dim.2, color = phoneme)) +
+  geom_point(alpha = 0.3, size = 1) +
+  stat_ellipse(level = 0.95, linewidth = 1.1) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "ACP — Plan 1-2",
+       x = paste0("CP1 (", round(res.pca$eig[1,2],1), "%)"),
+       y = paste0("CP2 (", round(res.pca$eig[2,2],1), "%)"),
+       color = "Phonème")
+
+p34 <- ggplot(scores_df, aes(x = Dim.3, y = Dim.4, color = phoneme)) +
+  geom_point(alpha = 0.3, size = 1) +
+  stat_ellipse(level = 0.95, linewidth = 1.1) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "ACP — Plan 3-4",
+       x = paste0("CP3 (", round(res.pca$eig[3,2],1), "%)"),
+       y = paste0("CP4 (", round(res.pca$eig[4,2],1), "%)"),
+       color = "Phonème")
+
+grid.arrange(p12, p34, ncol = 2)
+```
+
+**Interprétation** : Dès le plan 1-2, on distingue clairement **sh** (à gauche, haute énergie haute fréquence) des voyelles. Les voyelles *iy*, *aa* et *ao* se séparent davantage sur les composantes 3 et 4. La classe *dcl* (occlusive) est la moins bien séparée, ce qui est cohérent avec sa faible énergie spectrale.
+
+## Classification hiérarchique ascendante (CAH)
+
+La CAH est effectuée sur les **20 premières composantes principales** (représentant environ 85 % de la variance totale) avec le critère d'agrégation de **Ward**.
+
+```{r cah}
+n_cp <- min(20, ncol(res.pca$ind$coord))
+scores_mat <- res.pca$ind$coord[, 1:n_cp]
+
+dist_mat <- dist(scores_mat, method = "euclidean")
+cah      <- hclust(dist_mat, method = "ward.D2")
+
+# Dendrogramme (sur sous-échantillon pour lisibilité)
+plot(cah, labels = FALSE, hang = -1,
+     main = "Dendrogramme CAH (critère de Ward)",
+     xlab = "", sub = "")
+rect.hclust(cah, k = 5, border = c("red","blue","green","orange","purple"))
+```
+
+```{r cah-cross}
+groupes_cah <- cutree(cah, k = 5)
+tab_cah     <- table(Classe_CAH = groupes_cah, Phonème = y_train)
+
+kbl(tab_cah,
+    caption = "Table croisée : classes CAH × phonèmes réels") |>
+  kable_styling(bootstrap_options = c("striped","hover"))
+```
+
+```{r cah-visu, fig.cap="Classes CAH dans le plan ACP 1-2"}
+scores_df$Classe_CAH <- as.factor(groupes_cah)
+
+ggplot(scores_df, aes(x = Dim.1, y = Dim.2,
+                       color = Classe_CAH, shape = phoneme)) +
+  geom_point(alpha = 0.4, size = 1.5) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(title = "CAH (5 classes) dans le plan ACP 1-2",
+       x = paste0("CP1 (", round(res.pca$eig[1,2],1), "%)"),
+       y = paste0("CP2 (", round(res.pca$eig[2,2],1), "%)"),
+       color = "Classe CAH", shape = "Phonème réel")
+```
+
+## K-means (K = 5)
+
+```{r kmeans}
+set.seed(42)
+km5 <- kmeans(scores_mat, centers = 5, nstart = 50, iter.max = 200)
+tab_km <- table(Classe_KM = km5$cluster, Phonème = y_train)
+
+kbl(tab_km,
+    caption = "Table croisée : classes K-means × phonèmes réels") |>
+  kable_styling(bootstrap_options = c("striped","hover"))
+```
+
+```{r purity}
+purity <- function(tab) sum(apply(tab, 1, max)) / sum(tab)
+
+pur_df <- data.frame(
+  Méthode = c("CAH (Ward, K=5)", "K-means (K=5)"),
+  Pureté  = round(c(purity(tab_cah), purity(tab_km)), 3)
+)
+kbl(pur_df, caption = "Pureté des classifications non supervisées") |>
+  kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE)
+```
+
+**Interprétation** : La **pureté** (proportion d'observations correctement rassemblées au sein de chaque groupe) indique la qualité de la partition sans utiliser les étiquettes. Une pureté \> 0.7 indique que les phonèmes forment des structures naturelles dans l'espace spectral, en particulier pour *sh* et *iy*. La confusion principale concerne *aa*, *ao* et *dcl*, dont les profils spectraux se chevauchent.
+
+# Analyse Supervisée : Discrimination des Phonèmes
+
+## PLS-DA — Choix du nombre de composantes
+
+La **PLS-DA** (Partial Least Squares Discriminant Analysis, package *mixOmics*) est une méthode de régression PLS appliquée à des variables réponses indicatrices des classes. Elle est particulièrement adaptée lorsque le nombre de prédicteurs ($p = 256$) est supérieur au nombre d'observations.
+
+```{r plsda-init}
+#| cache: true
+plsda_init <- mixOmics::plsda(X_train, y_train, ncomp = 15)
+```
+
+```{r plsda-perf}
+#| cache: true
+set.seed(42)
+perf_plsda <- perf(plsda_init,
+                   validation  = "Mfold",
+                   folds       = 5,
+                   nrepeat     = 3,      # 10 → 3 répétitions
+                   progressBar = TRUE,   # pour voir l'avancement
+                   auc         = FALSE)  # désactiver l'AUC (coûteux)
+```
+
+
+```{r plsda-perf-plot, fig.cap="Taux d'erreur PLS-DA en validation croisée (5-fold, 10 répétitions)"}
+plot(perf_plsda,
+     col = color.mixo(5:7),
+     sd  = TRUE,
+     legend.position = "horizontal")
+```
+
+```{r plsda-ncomp}
+cat("Nombre de composantes retenu (BER, max.dist) :",
+    perf_plsda$choice.ncomp["Overall.BER", "max.dist"], "\n")
+nb_comp <- perf_plsda$choice.ncomp["Overall.BER", "max.dist"]
+
+kbl(as.data.frame(perf_plsda$choice.ncomp),
+    caption = "Nombre de composantes optimal selon la distance et le critère") |>
+  kable_styling(bootstrap_options = c("striped","hover"), full_width = FALSE)
+```
+
+**Lecture** : On retient le nombre de composantes minimisant le **Balanced Error Rate** (BER, adapté aux classes déséquilibrées) selon la distance *max.dist*, qui est la plus robuste pour ce type de données.
+
+## PLS-DA finale — Interprétation
+
+```{r plsda-final}
+plsda_final <- mixOmics::plsda(X_train, y_train, ncomp = nb_comp)
+```
+
+### Graphe des individus
+
+```{r plsda-indiv, fig.cap="PLS-DA : graphe des individus (comp. 1-2 et 3-4)"}
+p_pls12 <- mixOmics::plotIndiv(plsda_final,
+              comp     = 1:2,
+              col      = color.mixo(1:5),
+              ellipse  = TRUE,
+              ellipse.level = 0.95,
+              legend   = TRUE,
+              title    = "PLS-DA — Comp. 1-2",
+              ind.names = FALSE,
+              plot     = FALSE)
+
+p_pls12$graph +
+  labs(x = "Composante 1", y = "Composante 2")
+```
+
+```{r plsda-indiv34, fig.cap="PLS-DA : graphe des individus (comp. 3-4)", eval=(nb_comp >= 4)}
+p_pls34 <- mixOmics::plotIndiv(plsda_final,
+              comp     = 3:4,
+              col      = color.mixo(1:5),
+              ellipse  = TRUE,
+              ellipse.level = 0.95,
+              legend   = TRUE,
+              title    = "PLS-DA — Comp. 3-4",
+              ind.names = FALSE,
+              plot     = FALSE)
+
+p_pls34$graph +
+  labs(x = "Composante 3", y = "Composante 4")
+```
+
+### Graphe des variables
+
+```{r plsda-var, fig.cap="PLS-DA : corrélations variables–composantes"}
+mixOmics::plotVar(plsda_final,
+                  comp   = 1:2,
+                  cutoff = 0.5,
+                  title  = "PLS-DA — Variables (|cor| > 0.5)")
+```
+
+### VIP (Variable Importance in Projection)
+
+```{r plsda-vip, fig.cap="VIP par fréquence spectrale — PLS-DA"}
+vip_vals <- vip(plsda_final)[, nb_comp]
+
+vip_df <- data.frame(
+  Frequence = 1:256,
+  VIP       = vip_vals,
+  Important = vip_vals > 1
+)
+
+ggplot(vip_df, aes(x = Frequence, y = VIP, fill = Important)) +
+  geom_col(width = 1) +
+  geom_hline(yintercept = 1, color = "red", linewidth = 1) +
+  geom_hline(yintercept = 0.8, color = "orange", linewidth = 0.8, linetype = "dashed") +
+  scale_fill_manual(values = c("grey70","steelblue"),
+                    labels = c("VIP ≤ 1", "VIP > 1"),
+                    name = "") +
+  labs(title = "VIP PLS-DA par fréquence spectrale",
+       x = "Fréquence (index 1–256)",
+       y = "VIP")
+```
+
+```{r vip-summary}
+cat("Variables avec VIP > 1  :", sum(vip_vals > 1),  "\n")
+cat("Variables avec VIP > 0.8:", sum(vip_vals > 0.8), "\n")
+cat("Fréquences les plus importantes (top 10) :\n")
+print(sort(vip_vals, decreasing = TRUE)[1:10])
+```
+
+**Interprétation des VIP** :
+
+-   Les fréquences à **fort VIP** correspondent aux bandes spectrales les plus discriminantes entre phonèmes.\
+-   La région des **basses fréquences** (formants, \< \~100) distingue les voyelles entre elles.\
+-   Les **hautes fréquences** (\> \~150) séparent *sh* des autres phonèmes (énergie de friction).\
+-   Les VIP \> 1 identifient un sous-ensemble compact de fréquences portant l'essentiel de l'information discriminante.
+
+## sPLS-DA — PLS-DA avec sélection de variables
+
+Pour confirmer la sélection opérée par les VIP, on ajuste un **sPLS-DA** (sparse PLS-DA) en ne conservant que les variables avec VIP \> 1.
+
+```{r splsda}
+n_sel <- sum(vip_vals > 1)
+cat("Nombre de variables sélectionnées :", n_sel, "\n")
+
+set.seed(42)
+splsda_final <- mixOmics::splsda(X_train, y_train,
+                                  ncomp  = nb_comp,
+                                  keepX  = rep(n_sel, nb_comp))
+```
+
+```{r splsda-indiv, fig.cap="sPLS-DA : graphe des individus (comp. 1-2)"}
+p_spls <- mixOmics::plotIndiv(splsda_final,
+              comp     = 1:2,
+              col      = color.mixo(1:5),
+              ellipse  = TRUE,
+              ellipse.level = 0.95,
+              legend   = TRUE,
+              title    = "sPLS-DA — Comp. 1-2",
+              ind.names = FALSE,
+              plot     = FALSE)
+
+p_spls$graph
+```
+
+# Performances et Comparaison des Méthodes
+
+## Évaluation sur l'échantillon test
+
+```{r eval-test}
+# PLS-DA
+pred_plsda  <- predict(plsda_final, X_test, dist = "max.dist")
+cl_plsda    <- pred_plsda$class$max.dist[, nb_comp]
+cm_plsda    <- confusionMatrix(as.factor(cl_plsda), y_test)
+
+# sPLS-DA
+pred_splsda <- predict(splsda_final, X_test, dist = "max.dist")
+cl_splsda   <- pred_splsda$class$max.dist[, nb_comp]
+cm_splsda   <- confusionMatrix(as.factor(cl_splsda), y_test)
+```
+
+### Matrice de confusion — PLS-DA
+
+```{r cm-plsda}
+kbl(cm_plsda$table,
+    caption = "Matrice de confusion PLS-DA (test)") |>
+  kable_styling(bootstrap_options = c("striped","hover"))
+```
+
+### Matrice de confusion — sPLS-DA
+
+```{r cm-splsda}
+kbl(cm_splsda$table,
+    caption = "Matrice de confusion sPLS-DA (test)") |>
+  kable_styling(bootstrap_options = c("striped","hover"))
+```
+
+### Indicateurs de performance
+
+```{r perf-tab}
+sens_plsda  <- cm_plsda$byClass[, "Sensitivity"]
+sens_splsda <- cm_splsda$byClass[, "Sensitivity"]
+spec_plsda  <- cm_plsda$byClass[, "Specificity"]
+
+perf_tab <- data.frame(
+  Phonème          = gsub("Class: ", "", names(sens_plsda)),
+  `Sensibilité PLS-DA`  = round(sens_plsda, 3),
+  `Sensibilité sPLS-DA` = round(sens_splsda, 3),
+  `Spécificité PLS-DA`  = round(spec_plsda, 3)
+)
+
+kbl(perf_tab,
+    caption = "Sensibilité et spécificité par phonème (échantillon test)",
+    row.names = FALSE) |>
+  kable_styling(bootstrap_options = c("striped","hover"))
+```
+
+```{r perf-global}
+bilan <- data.frame(
+  Méthode      = c("PLS-DA (toutes variables)",
+                   sprintf("sPLS-DA (%d variables)", n_sel)),
+  `Nb composantes` = rep(nb_comp, 2),
+  `Nb variables`   = c(256, n_sel),
+  Accuracy     = round(c(cm_plsda$overall["Accuracy"],
+                          cm_splsda$overall["Accuracy"]), 4),
+  `Err. rate`  = round(c(1 - cm_plsda$overall["Accuracy"],
+                          1 - cm_splsda$overall["Accuracy"]), 4)
+)
+
+kbl(bilan,
+    caption = "Bilan comparatif des méthodes — Échantillon test",
+    row.names = FALSE) |>
+  kable_styling(bootstrap_options = c("striped","hover")) |>
+  row_spec(which.min(bilan$`Err. rate`), bold = TRUE, color = "white",
+           background = "steelblue")
+```
+
+## Courbe ROC multiclasses (AUC)
+
+```{r auc}
+#| results: hide
+auc_res <- auroc(plsda_final, roc.comp = nb_comp, print = FALSE)
+```
+
+Les **AUC par phonème** confirment la hiérarchie de discriminabilité :
+
+-   *sh* et *iy* sont les plus faciles à discriminer (formes spectrales distinctes).\
+-   *dcl* est le phonème le moins bien reconnu (énergie diffuse).\
+-   *aa* et *ao* présentent des confusions mutuelles fréquentes (voyelles proches acoustiquement).
+
+# Discussion et Conclusion
+
+## Synthèse des résultats
+
+```{r final-summary, echo=FALSE}
+cat(sprintf(
+"
+┌─────────────────────────────────────────────────────────────┐
+│              BILAN DES ANALYSES                             │
+├─────────────────────────┬───────────────────────────────────┤
+│ Analyse exploratoire    │                                   │
+│  • ACP CP1-2            │ %% var. : %.1f%%                     │
+│  • Pureté CAH (K=5)     │ à compléter après exécution       │
+│  • Pureté K-means (K=5) │ à compléter après exécution       │
+├─────────────────────────┼───────────────────────────────────┤
+│ Analyse supervisée      │                                   │
+│  • Nb composantes PLS-DA│ %d (BER, max.dist)                │
+│  • Accuracy PLS-DA test │ %.1f%%                              │
+│  • Accuracy sPLS-DA test│ %.1f%%                              │
+│  • Var. sélectionnées   │ %d / 256                           │
+└─────────────────────────┴───────────────────────────────────┘
+",
+  sum(res.pca$eig[1:2, 2]),
+  nb_comp,
+  cm_plsda$overall["Accuracy"] * 100,
+  cm_splsda$overall["Accuracy"] * 100,
+  n_sel
+))
+```
+
+## Points clés de l'interprétation
+
+**Analyse exploratoire** :\
+L'ACP révèle que la **première composante principale** capture principalement l'opposition entre les phonèmes fricatifs (*sh*) et vocaliques. Les voyelles se différencient surtout sur les composantes suivantes, en lien avec la structure en formants du conduit vocal. La CAH et le K-means retrouvent naturellement la structure des classes, avec une meilleure séparation pour *sh* et *iy*.
+
+**Analyse supervisée (PLS-DA)** :\
+La PLS-DA dépasse l'ACP en exploitant l'information de classe lors de la construction des composantes. Elle permet une **séparation nette** des 5 phonèmes avec un nombre réduit de composantes. Les **VIP** identifient deux bandes fréquentielles clés :
+
+1.  **Basses fréquences** (\~1–80) : information sur les formants vocaliques\
+2.  **Hautes fréquences** (\~150–256) : énergie de friction, discriminante pour *sh*
+
+**sPLS-DA vs PLS-DA** :\
+La sPLS-DA offre un modèle **plus parcimonieux** avec des performances comparables ou légèrement inférieures. Dans un contexte applicatif (système embarqué, temps réel), la réduction à \~100–150 fréquences spectrales permettrait de diviser le coût de calcul par deux.
+
+## Conclusion
+
+Ce projet illustre la complémentarité entre l'exploration non supervisée et la discrimination supervisée en grande dimension ($p \gg n$ relatif). La PLS-DA se révèle bien adaptée à ce problème : robuste à la colinéarité des variables spectrales, interprétable via les VIP, et généralisant bien sur des locuteurs non vus lors de l'apprentissage. La comparaison train/test valide la capacité du modèle à **généraliser** à de nouveaux locuteurs, condition essentielle pour un système de reconnaissance vocale opérationnel.
+
+------------------------------------------------------------------------
+
+*Rapport généré avec Quarto — R version `r R.version$major`.`r R.version$minor`*

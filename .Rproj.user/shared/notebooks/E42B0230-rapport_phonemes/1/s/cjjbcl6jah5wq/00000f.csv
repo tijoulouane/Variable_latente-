@@ -1,0 +1,2 @@
+"0","#| cache: true"
+"0","plsda_init <- mixOmics::plsda(X_train, y_train, ncomp = 15)"

@@ -1,0 +1,6 @@
+"0","res.pca <- PCA(X_train, scale.unit = TRUE, ncp = 15, graph = FALSE)"
+"0",""
+"0","fviz_eig(res.pca, ncp = 15, addlabels = TRUE,"
+"0","         barfill = ""steelblue"", barcolor = ""steelblue"") +"
+"0","  labs(title = ""ACP — Variance expliquée par composante"","
+"0","       x = ""Composante principale"", y = ""% de variance expliquée"")"

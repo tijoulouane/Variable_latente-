@@ -1,0 +1,7 @@
+"0","set.seed(42)"
+"0","km5 <- kmeans(scores_mat, centers = 5, nstart = 50, iter.max = 200)"
+"0","tab_km <- table(Classe_KM = km5$cluster, Phonème = y_train)"
+"0",""
+"0","kbl(tab_km,"
+"0","    caption = ""Table croisée : classes K-means × phonèmes réels"") |>"
+"0","  kable_styling(bootstrap_options = c(""striped"",""hover""))"

@@ -1,0 +1,5 @@
+"0",""
+"0","fviz_pca_ind(pca, habillage = Ytrain, addEllipses = TRUE)"
+"2","Erreur dans `[.data.frame`(X$call$X, rownames(ind), grp, drop = FALSE) : 
+  colonnes non définies sélectionnées
+"

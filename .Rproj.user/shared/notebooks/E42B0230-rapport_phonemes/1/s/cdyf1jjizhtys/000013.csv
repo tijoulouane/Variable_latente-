@@ -1,0 +1,6 @@
+"0","plot(perf_plsda,"
+"0","     col = color.mixo(5:7),"
+"0","     sd  = TRUE,"
+"0","     legend.position = ""horizontal"")"
+"2","Erreur : objet 'perf_plsda' introuvable
+"

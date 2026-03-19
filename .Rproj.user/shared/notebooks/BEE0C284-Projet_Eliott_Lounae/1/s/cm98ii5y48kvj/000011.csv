@@ -1,0 +1,3 @@
+"0","plsda_model <- plsda(Xtrain, Ytrain, ncomp = 10)"
+"0",""
+"0","plotIndiv(plsda_model)"

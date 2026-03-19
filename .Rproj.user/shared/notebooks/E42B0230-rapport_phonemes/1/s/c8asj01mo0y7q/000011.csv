@@ -1,0 +1,8 @@
+"0","purity <- function(tab) sum(apply(tab, 1, max)) / sum(tab)"
+"0",""
+"0","pur_df <- data.frame("
+"0","  Méthode = c(""CAH (Ward, K=5)"", ""K-means (K=5)""),"
+"0","  Pureté  = round(c(purity(tab_cah), purity(tab_km)), 3)"
+"0",")"
+"0","kbl(pur_df, caption = ""Pureté des classifications non supervisées"") |>"
+"0","  kable_styling(bootstrap_options = c(""striped"",""hover""), full_width = FALSE)"

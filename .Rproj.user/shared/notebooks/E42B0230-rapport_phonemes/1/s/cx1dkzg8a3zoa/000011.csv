@@ -1,0 +1,6 @@
+"0","groupes_cah <- cutree(cah, k = 5)"
+"0","tab_cah     <- table(Classe_CAH = groupes_cah, Phonème = y_train)"
+"0",""
+"0","kbl(tab_cah,"
+"0","    caption = ""Table croisée : classes CAH × phonèmes réels"") |>"
+"0","  kable_styling(bootstrap_options = c(""striped"",""hover""))"

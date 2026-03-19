@@ -1,0 +1,8 @@
+"0","train <- data[data$speaker == ""train"", ]"
+"0","test <- data[data$speaker == ""test"", ]"
+"0",""
+"0","Xtrain <- train %>% select(starts_with(""x.""))"
+"0","Ytrain <- train$phoneme"
+"0",""
+"0","Xtest <- test %>% select(starts_with(""x.""))"
+"0","Ytest <- test$phoneme"

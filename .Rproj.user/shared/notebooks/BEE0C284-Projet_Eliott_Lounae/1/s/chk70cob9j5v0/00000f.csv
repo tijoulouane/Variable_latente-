@@ -1,0 +1,3 @@
+"0","perf_plsda <- perf(plsda_model, validation = ""Mfold"", folds = 5)"
+"0",""
+"0","plot(perf_plsda)"

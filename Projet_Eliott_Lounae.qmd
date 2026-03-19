@@ -1,0 +1,212 @@
+---
+title: "Projet_Eliott_Lounae"
+---
+
+# 1. Introduction et contexte de l’étude
+Exemple de texte
+
+L’objectif de cette étude est de réaliser une analyse statistique de données issues de la reconnaissance vocale. Les données proviennent du corpus vocal TIMIT speech corpus, qui est largement utilisé dans la recherche en traitement automatique de la parole.
+
+Ce jeu de données est présenté dans l’ouvrage *The Elements of Statistical Learning* écrit par Trevor Hastie,Robert Tibshirani et Jerome Friedman.
+
+Les données analysées correspondent à 4509 trames vocales d’une durée de 32 millisecondes, extraites de discours enregistrés.
+
+Chaque observation contient :
+
+256 variables explicatives (x.1 à x.256)
+
+une variable *phonème* indiquant le son prononcé
+
+une variable locuteur indiquant si l’observation appartient au jeu d’apprentissage ou de test.
+
+Les phonèmes étudiés sont :
+- sh
+- dcl
+- iy
+- aa
+- ao
+
+Les variables x.1 à x.256 correspondent aux coefficients du log-périodogramme du signal vocal, représentant l’intensité des différentes fréquences du signal.
+
+L’objectif de l’étude est de discriminer les phonèmes à partir de ces caractéristiques spectrales à l’aide de méthodes d’analyse multivariée, notamment l’analyse factorielle discriminante et la PLS-DA.
+
+# 2. Chargement et préparation des données
+
+## Import des packages 
+```{r}
+library(tidyverse)
+library(readxl)
+library(FactoMineR)
+library(factoextra)
+library(MASS)
+library(mixOmics)
+```
+
+## Import des données 
+```{r}
+data <- read.csv("phoneme.csv")
+
+rownames(data) <- data$row.names
+data$row.names <- NULL
+
+dim(data)
+head(data)
+```
+
+Le jeu de données contient 4509 observations et 258 variables.
+Les variables x.1 à x.256 représentent les caractéristiques spectrales des trames vocales, tandis que les variables phoneme et speaker indiquent respectivement le phonème prononcé et l’appartenance au jeu d’apprentissage ou de test.
+
+# 3. Séparation apprentissage / test
+
+```{r}
+train <- data[data$speaker == "train", ]
+test <- data[data$speaker == "test", ]
+
+Xtrain <- train %>% select(starts_with("x."))
+Ytrain <- train$phoneme
+
+Xtest <- test %>% select(starts_with("x."))
+Ytest <- test$phoneme
+```
+
+Le jeu de données est divisé en deux sous-échantillons :
+
+- échantillon d’apprentissage (train) utilisé pour estimer les modèles
+
+_ échantillon test (test) utilisé pour évaluer leurs performances prédictives.
+
+Cette séparation permet de tester la capacité de généralisation des modèles sur des données non utilisées lors de l’apprentissage.
+
+# 4. Analyse exploratoire non supervisée
+
+```{r, warning=FALSE}
+train <- data[grepl("^train", data$speaker), ]
+test  <- data[grepl("^test", data$speaker), ]
+
+Xtrain <- train[, grep("^x\\.", names(train))]
+Ytrain <- train$g
+
+Xtest <- test[, grep("^x\\.", names(test))]
+Ytest <- test$g
+
+pca <- PCA(Xtrain, scale.unit = TRUE, graph = FALSE)
+
+fviz_eig(pca)
+
+fviz_pca_ind(pca, habillage = Ytrain, addEllipses = TRUE)
+```
+
+L’analyse en composantes principales permet de réduire la dimension du jeu de données tout en conservant une grande partie de la variance.
+
+Les premiers axes principaux expliquent une proportion importante de la variabilité totale des données.
+
+La projection des observations montre que certaines trames vocales tendent à se regrouper selon leur phonème, bien que les groupes ne soient pas parfaitement séparés. Cela suggère que les caractéristiques spectrales contiennent de l’information permettant de distinguer les phonèmes.
+
+```{r}
+set.seed(123)
+
+km <- kmeans(Xtrain, centers = 5)
+
+table(km$cluster, Ytrain)
+```
+
+La classification en 5 groupes permet d’examiner si les clusters obtenus correspondent aux phonèmes.
+
+Les résultats montrent que certains groupes sont dominés par un phonème particulier, ce qui indique que les variables spectrales contiennent une structure liée aux phonèmes.
+
+Cependant, plusieurs phonèmes apparaissent dans un même cluster, ce qui signifie que la séparation naturelle des classes reste imparfaite sans utiliser l’information de la variable cible.
+
+# 5. Analyse supervisée : AFD
+
+L’Analyse Factorielle Discriminante vise à trouver des combinaisons linéaires des variables permettant de séparer au mieux les phonèmes.
+
+```{r}
+train_lda <- train[, c(grep("^x\\.", names(train)), which(names(train)=="g"))]
+lda_model <- lda(g ~ ., data = train_lda)
+
+pred_lda <- predict(lda_model, newdata = test)$class
+
+table(pred_lda, Ytest)
+```
+
+L’AFD construit des axes discriminants maximisant la séparation entre les classes.
+
+La matrice de confusion permet d’évaluer la capacité du modèle à prédire correctement les phonèmes sur l’échantillon test.
+
+Certains phonèmes sont correctement identifiés tandis que d’autres présentent des confusions, ce qui peut s’expliquer par des caractéristiques spectrales similaires entre certains sons.
+
+
+# 6. Analyse supervisée : PLS-DA
+
+La PLS-DA (Partial Least Squares Discriminant Analysis) est une méthode particulièrement adaptée lorsque :
+
+le nombre de variables est élevé
+
+les variables sont corrélées.
+
+Elle construit des variables latentes qui maximisent la covariance entre les variables explicatives et la variable cible.
+
+```{r}
+plsda_model <- plsda(Xtrain, Ytrain, ncomp = 10)
+
+plotIndiv(plsda_model)
+```
+
+Choix du nombre de composante 
+
+```{r}
+perf_plsda <- perf(plsda_model, validation = "Mfold", folds = 5)
+
+plot(perf_plsda)
+```
+
+Prédiction 
+
+```{r}
+pred <- predict(plsda_model, Xtest)
+
+table(pred$class$max.dist[,2], Ytest)
+```
+
+La PLS-DA permet de projeter les observations dans un espace de dimension réduite optimisé pour la discrimination des classes.
+
+Les premières composantes latentes permettent généralement de séparer plusieurs phonèmes de manière plus nette que l’ACP.
+
+La matrice de confusion montre la capacité du modèle à classifier correctement les phonèmes sur l’échantillon test.
+
+La PLS-DA est souvent plus performante que l’AFD dans ce contexte car elle gère mieux :
+
+les données de grande dimension
+
+les corrélations entre variables spectrales.
+
+# 7. Importance des variables
+```{r}
+vip(plsda_model)
+```
+
+Les scores VIP (Variable Importance in Projection) permettent d’identifier les variables spectrales les plus importantes pour la discrimination des phonèmes.
+
+Ces variables correspondent à certaines fréquences du signal vocal qui jouent un rôle majeur dans la distinction entre les sons.
+
+
+# 8. Validation des résultats
+
+La validation sur l’échantillon test permet de vérifier que le modèle n’est pas sur-appris.
+
+Si les performances sur test sont proches de celles obtenues sur l’apprentissage, cela indique que le modèle généralise correctement à de nouvelles données.
+
+# 9. Synthèse de l’étude
+Exemple de conclusion
+
+Cette étude avait pour objectif de discriminer cinq phonèmes à partir de caractéristiques spectrales du signal vocal.
+
+L’analyse exploratoire a montré que les trames vocales présentent une certaine structure liée aux phonèmes, bien que les groupes ne soient pas parfaitement séparés sans supervision.
+
+Les méthodes supervisées ont permis d’améliorer la discrimination. L’analyse factorielle discriminante fournit une première séparation des classes, tandis que la PLS-DA offre de meilleures performances dans ce contexte de grande dimension.
+
+Les résultats obtenus sur l’échantillon test confirment la capacité du modèle à identifier correctement les phonèmes à partir des variables spectrales.
+
+Ces résultats illustrent l’intérêt des méthodes à variables latentes pour l’analyse de données de grande dimension, notamment dans les applications de reconnaissance vocale.
+
+
