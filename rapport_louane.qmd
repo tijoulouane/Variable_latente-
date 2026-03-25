@@ -30,7 +30,6 @@ library(factoextra)
 library(ggplot2)
 library(caret)  
 library(mixOmics)
-
 ```
 
 # 1/ Introduction
