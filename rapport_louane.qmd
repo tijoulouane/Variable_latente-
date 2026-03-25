@@ -383,6 +383,7 @@ error_by_class <- df_test_perf %>%
     Taux_Erreur = (Erreurs / Total) * 100
   )
 
+
 # Création du barplot
 ggplot(error_by_class, aes(x = Reel, y = Taux_Erreur, fill = Reel)) +
   geom_bar(stat = "identity", color = "black", show.legend = FALSE) +
