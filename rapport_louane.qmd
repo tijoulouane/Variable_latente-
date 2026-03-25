@@ -371,6 +371,7 @@ ggplot(df_heatmap, aes(x = Prédit, y = Réel, fill = Freq)) +
   )
 ```
 
+
 ```{r}
 # Calcul du taux d'erreur pour chaque phonème
 library(dplyr)
