@@ -392,7 +392,7 @@ ggplot(error_by_class, aes(x = Reel, y = Taux_Erreur, fill = Reel)) +
 
 # Synthèse finale
 
-Ce projet met en évidence la capacité des méthodes de réduction de dimension, en particulier la PLS-DA, à traiter efficacement des données spectrales de grande dimension. Les résultats obtenus montrent une excellente performance de classification, notamment pour les phonèmes les plus distincts comme "sh" et "dcl".
+Ce projet met en évidence la capacité des méthodes de réduction de dimension, en particulier la PLS-DA, à traiter efficacement des données spectrales de grande dimension. Les résultats obtenus montrent une excellente performance de classification, notamment pour les  bv les plus distincts comme "sh" et "dcl".
 
 Toutefois, certaines confusions persistent entre des phonèmes proches tels que "aa" et "ao", soulignant les limites liées à la similarité acoustique.
 
