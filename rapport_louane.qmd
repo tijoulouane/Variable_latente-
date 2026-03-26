@@ -21,7 +21,8 @@ body {
 }
 ```
 
-```{r, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
+
 # IMPORT DES PACKAGES 
 library(kableExtra)
 library(psych)
@@ -30,6 +31,7 @@ library(factoextra)
 library(ggplot2)
 library(caret)  
 library(mixOmics)
+library(dplyr)
 ```
 
 # 1/ Introduction
@@ -192,7 +194,7 @@ La standardisation permet ainsi que toutes les variables contribuent équitablem
 
 #### 3.1.2.2 Choix du nombre de dimensions 
 
-```{r}
+```{r, warning=FALSE}
 Comp <- as.data.frame(acp$eig[1:5, ])
 
 colnames(Comp) <- c("Valeur Propre", "% de Variance", "% Cumulé")
@@ -201,7 +203,7 @@ kbl(Comp, caption = "Variance expliquée par les 5 premières Composantes Princi
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) 
 ```
 
-```{r}
+```{r, warning=FALSE }
 fviz_eig(acp, 
          addlabels = TRUE,
          main = "Eboulis des valeurs propres") 
@@ -265,17 +267,9 @@ plotLoadings(plsda, comp = 1, method = 'mean', contrib = 'max')
 L’examen des contributions individuelles révèle que le phonème "sh" (en rose) domine largement la formation de la première composante principale. Une grande majorité des variables spectrales (notamment celles avec des indices élevés comme $x.100$ à $x.245$) présentent des coefficients négatifs importants, ce qui explique pourquoi ce phonème se projette à l'extrémité opposée des autres groupes sur l'axe 1. À l'inverse, les phonèmes comme "aa" ou "ao" contribuent de manière beaucoup plus marginale et hétérogène à cette dimension. Cette visualisation confirme que la Comp 1 agit principalement comme un descripteur de contraste entre les sons fricatifs (comme le "sh") et les autres catégories vocales, isolant ainsi les signatures spectrales les plus énergétiques du jeu de données.
 
 ```{r}
-plotIndiv(plsda, 
-          comp = 1:2, 
-          group = y_train,
-          ind.names = FALSE,
-          ellipse = TRUE,
-          legend = TRUE,
-          title = "PLS-DA - Plan des individus")
-
 # Visualisation des individus
-plotIndiv(plsda, comp = 1:2, col = c("red","blue","green","orange","purple"),
-          ellipse = TRUE, legend = TRUE)
+plotIndiv(plsda, comp = 1:2, col = c("tomato","skyblue","darkgreen","orange","lightpink"),
+          ellipse = TRUE, legend = TRUE, title = "PLS-DA - Plan des individus")
 
 ```
 Le graphique des individus (PlotIndiv) met en évidence une structuration spatiale marquée par le type de phonème, confirmant les tendances observées précédemment. On distingue deux pôles isolés : le phonème "sh" (violet) et le phonème "dcl" (vert), qui occupent des régions distinctes du plan, facilitant leur future classification. À l'inverse, le centre du graphique révèle un chevauchement important entre les classes "aa" (rouge), "ao" (bleu) et "iy" (orange). Cette proximité suggère une ressemblance spectrale étroite entre ces voyelles, ce qui représente le principal défi pour les modèles prédictifs. Les ellipses de confiance soulignent néanmoins que chaque phonème possède un "centre de gravité" propre, validant l'utilisation de méthodes discriminantes pour affiner la séparation de ces classes denses.
@@ -284,16 +278,13 @@ Choix du nombre de composantes par validation croisée:
 
 ```{r}
 
-
 perf_plsda <- perf(plsda,
                    validation  = "Mfold",
                    folds       = 5,
-                   nrepeat     = 3,      # 10 → 3 répétitions
-                   progressBar = TRUE,   # pour voir l'avancement
+                   nrepeat     = 3,    
                    auc         = FALSE)
 
 nb_comp <- perf_plsda$choice.ncomp[1, 1]
-nb_comp
 
 # Réentraînement du modèle final
 plsda_1 <- mixOmics::plsda(X_train, y_train, ncomp = nb_comp)
@@ -317,7 +308,7 @@ Le VIP (Variable Importance in Projection) mesure la contribution de chaque vari
 VIP > 1 → variable importante, à conserver
 VIP ≤ 1 → variable peu discriminante, potentiellement à écarter
 
-```{r}
+```{r, results='hide',echo=FALSE}
 auc.plsda <- auroc(plsda_1, roc.comp = nb_comp)
 ```
 L'**AUC** (Area Under the ROC Curve) évalue la capacité du modèle à discriminer chaque phonème des autres. Une AUC proche de 1 indique une excellente discrimination. Cette étape est complémentaire au taux d'erreur : elle donne une vision plus fine des performances classe par classe
@@ -373,15 +364,13 @@ ggplot(df_heatmap, aes(x = Prédit, y = Réel, fill = Freq)) +
 
 ```{r}
 # Calcul du taux d'erreur pour chaque phonème
-library(dplyr)
 
 error_by_class <- df_test_perf %>%
   group_by(Reel) %>%
   summarise(
     Total = n(),
     Erreurs = sum(Reel != Predict),
-    Taux_Erreur = (Erreurs / Total) * 100
-  )
+    Taux_Erreur = (Erreurs / Total) * 100)
 
 
 # Création du barplot
@@ -398,9 +387,14 @@ ggplot(error_by_class, aes(x = Reel, y = Taux_Erreur, fill = Reel)) +
   theme_minimal() +
   theme(
     plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-    axis.text = element_text(size = 11)
-  )
+    axis.text = element_text(size = 11))
 ```
 
 
 # Synthèse finale
+
+Ce projet met en évidence la capacité des méthodes de réduction de dimension, en particulier la PLS-DA, à traiter efficacement des données spectrales de grande dimension. Les résultats obtenus montrent une excellente performance de classification, notamment pour les phonèmes les plus distincts comme "sh" et "dcl".
+
+Toutefois, certaines confusions persistent entre des phonèmes proches tels que "aa" et "ao", soulignant les limites liées à la similarité acoustique.
+
+Des améliorations pourraient être envisagées, notamment via des méthodes non linéaires (SVM, réseaux de neurones) ou une sélection de variables plus poussée.  
