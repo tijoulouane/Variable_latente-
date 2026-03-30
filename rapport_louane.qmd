@@ -246,7 +246,7 @@ Nous passons donc maintenant à l’application d’un modèle supervisé, PLS-D
 
 ## 4.1 PLS-DA
 
-On entraîne un modèle PLS-DA avec 20 composantes sur l'ensemble des données. Nous en prenons 20 car nous ne savons pas encore combien de composantes sont vraiment utiles, on affinera le nombre de composantes par la suite.
+On entraîne un modèle PLS-DA avec 10 composantes sur l'ensemble des données. Nous en prenons 10 car nous ne savons pas encore combien de composantes sont vraiment utiles, on affinera le nombre de composantes par la suite.
 
 ```{r}
 set.seed(42)
@@ -279,7 +279,7 @@ plotIndiv(plsda, comp = 1:2, col = c("tomato","skyblue","darkgreen","orange","li
 
 ```
 
-Le graphique des individus (PlotIndiv) met en évidence une structuration spatiale marquée par le type de phonème, confirmant les tendances observées précédemment. On distingue deux pôles isolés : le phonème "sh" (violet) et le phonème "dcl" (vert), qui occupent des régions distinctes du plan, facilitant leur future classification. À l'inverse, le centre du graphique révèle un chevauchement important entre les classes "aa" (rouge), "ao" (bleu) et "iy" (orange). Cette proximité suggère une ressemblance spectrale étroite entre ces voyelles, ce qui représente le principal défi pour les modèles prédictifs. Les ellipses de confiance soulignent néanmoins que chaque phonème possède un centre de gravité propre, validant l'utilisation de méthodes discriminantes pour affiner la séparation de ces classes denses.
+Le graphique des individus met en évidence une structuration spatiale marquée par le type de phonème, confirmant les tendances observées précédemment. On distingue deux pôles isolés : le phonème "sh" (violet) et le phonème "dcl" (vert), qui occupent des régions distinctes du plan, facilitant leur future classification. À l'inverse, le centre du graphique révèle un chevauchement important entre les classes "aa" (rouge), "ao" (bleu) et "iy" (orange). Cette proximité suggère une ressemblance spectrale étroite entre ces voyelles, ce qui représente le principal défi pour les modèles prédictifs. Les ellipses de confiance soulignent néanmoins que chaque phonème possède un centre de gravité propre, validant l'utilisation de méthodes discriminantes pour affiner la séparation de ces classes denses.
 
 
 ```{r}
@@ -339,7 +339,7 @@ Le VIP (Variable Importance in Projection) mesure la contribution de chaque vari
 
 Au vu des résultats, on a plus de 75% des variables qui se situent en dessous du seuil critique pour seulement 49 (sur 256) situées au dessus. On a donc une majeure partie de nos données qui ne contribuent que très peu à la discrimination. 
 
-## 4.2 modèle réduit
+## 4.2 Modèle réduit
 ```{r}
 # 2. Identifier les variables importantes
 variables_importantes <- names(ldaVIP[ldaVIP > 1])
@@ -496,6 +496,8 @@ Visuellement, le plan des individus montre une bonne séparation globale des pho
 
 ## 4.4 AFD
 
+L’Analyse des Fonctions Discriminantes permet de synthétiser l’information contenue dans nos variables explicatives afin de maximiser la séparation entre les groupes. Nous présentons ci-dessous le modèle complet et la proportion de variance expliquée par chaque axe discriminant.
+
 ```{r}
 # Modèle AFD complet
 train_afd <- data.frame(X_train, g = y_train)
@@ -521,6 +523,9 @@ kbl(tab_variance,
 
 Les axes discriminants de l’AFD expliquent la majorité de la variance entre les classes : LD1 capture 58,71 % de la variance, LD2 28,15 %, portant la variance cumulée à 86,87 % sur les deux premiers axes. LD3 et LD4 contribuent respectivement à 11,49 % et 1,64 %, permettant d’atteindre 100 % de la variance expliquée.
 
+
+Avant de procéder, il est important de vérifier l’homogénéité des matrices de covariance entre les groupes à l’aide du test de Box (Box’s M-test):
+
 ```{r}
 #  Homogénéité des matrices de covariance (Box-M)
 boxm_test <- boxM(train_afd[, !(names(train_afd) =="g")], 
@@ -529,18 +534,14 @@ print(boxm_test)
 ```
 La p-value, inférieure à 0,05, indique une hétérogénéité des matrices de covariance, probablement liée au grand nombre d’observations. Néanmoins, au vu des excellentes performances de classification (AUC) et des taux d’erreur observés par la suite, l’utilisation de l’AFD reste pertinente.
 
-
+Le plan des individus obtenu par l’AFD permet de visualiser clairement la séparation entre les groupes sur les deux premiers axes discriminants:
 ```{r}
-# Projeter les individus sur les axes discriminants
-
 pred <- predict(modele_afd)
 afd_scores <- data.frame(
   LD1    = pred$x[, 1],
   LD2    = pred$x[, 2],
-  classe = y_train 
-)
+  classe = y_train)
 
-# Graphe
 ggplot(afd_scores, aes(x = LD1, y = LD2, color = classe)) +
   geom_point(alpha = 0.5, size = 1.5) +
   stat_ellipse(level = 0.95) +
@@ -549,14 +550,13 @@ ggplot(afd_scores, aes(x = LD1, y = LD2, color = classe)) +
     x = paste0("LD1 (", round(modele_afd$svd[1]^2 / 
                 sum(modele_afd$svd^2) * 100, 1), "% var. expl.)"),
     y = paste0("LD2 (", round(modele_afd$svd[2]^2 / 
-                sum(modele_afd$svd^2) * 100, 1), "% var. expl.)")
-  ) +
-  theme_bw()
+                sum(modele_afd$svd^2) * 100, 1), "% var. expl.)")) + theme_bw()
 
 ```
 
 L'AFD organise bien les sons en capturant 87 % des différences importantes sur les deux premiers axes. L’axe LD1 sépare clairement les voyelles aa et ao à gauche, et l’axe LD2 distingue le son sh en haut des sons dcl et iy en bas. Même si aa et ao se confondent parfois à cause de leur similarité naturelle, cela n’affecte pas beaucoup le taux d’erreur global.
 
+"Les performances du modèle AFD sont évaluées à la fois sur les données d’entraînement et via une validation croisée leave-one-out (LOO). Le tableau ci-dessous résume les taux d’erreur et le Balanced Error Rate (BER).
 ```{r}
 # --- Prédictions sur les données d'entraînement ---
 pred_train <- predict(modele_afd)$class
@@ -594,14 +594,10 @@ kbl(tab_perf_afd,
                 full_width = FALSE)
                 
 ```
-Le modèle AFD présente un taux d'erreur de 5,6 % sur les données d’entraînement. En validation croisée LOO, le taux d'erreur s’élève à 6,98 %, avec un taux d’erreur équilibré (BER) de 7,66 %, indiquant de bonnes performances globales et homogènes entre les classes.
 
+Le modèle AFD présente un taux d’erreur de 5,6 % sur les données d’entraînement, ce qui reflète une très bonne capacité à classer correctement les individus connus. Lors de la validation croisée Leave-One-Out (LOO), le taux d’erreur augmente légèrement à 6,98 %, ce qui reste faible et indique une bonne généralisation du modèle sur des données non vues. Le taux d’erreur équilibré (BER) de 7,66 % montre que la performance est homogène entre les différentes classes, et qu’aucune catégorie n’est particulièrement sous- ou sur-prédite. Globalement, ces résultats confirment que l’AFD fournit des performances solides et stables, même en présence d’hétérogénéité des matrices de covariance.
 
-# 5/ Comparaison de modèles 
-
-On rejette le premier modèle car il prends en compte l'ensemble des varaibles pour un taux d'erreur légèremment plus faible. Le risque de surapprentissage est donc bien plus élevé. Le modèle réduit permet une sélection de variables et une amélioration sur les métriques de distance.
-Le modèle sPLS-DA combine les deux car il atteint le même taux d'erreur que le modèle complet tout en intégrant une sélection des variables dans la construction même du modèle. On a donc plus de parcimonie et moins de risque de surapprentissage. 
-Le modèle réduit étant basé sur une sélection à postériori, il introduit donc un biais dans la sélection des variables. On préférera donc le modèle sPLS-DA.
+# 5/ Comparaison des modèles 
 
 ```{r}
 err_plsda_complet <- perf_plsda$error.rate$overall[5, "max.dist"]
@@ -635,10 +631,9 @@ tab_comparatif <- data.frame(
                         err_ber_splsda,
                         BER) * 100, 2),
   Sélection   = c("Aucune",
-                  "A posteriori (VIP > 1)",
-                  "Intégrée (keepX)",
-                  "Aucune")
-)
+                  "(VIP > 1)",
+                  "(keepX)",
+                  "Aucune"))
 
 kbl(tab_comparatif,
     caption = "Tableau comparatif des modèles de classification",
@@ -720,7 +715,7 @@ Bien que la sPLS-DA offre une sélection de variables intégrée et une meilleur
 Après comparaison des modèles sur l’échantillon d’apprentissage, le modèle AFD a été retenu pour sa performance optimale. Nous allons ainsi évaluer sa performance sur l’échantillon test afin de confirmer sa capacité de discrimination et la robustesse des résultats obtenus. 
 
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 test_afd <- data.frame(X_test, g = y_test)
 
 # Prédiction des classes sur le test
@@ -758,7 +753,7 @@ cat("AUC test :", round(auc(roc_test),3), "\n")
 Le modèle AFD retenu a été validé sur l’échantillon test. La matrice de confusion montre que la plupart des phonèmes sont parfaitement discriminés, avec seulement quelques confusions entre aa et ao (47 et 39 erreurs respectivement). L’erreur globale observée est de 8,04 % est faible et montre la performance du modèle, tandis que le BER s’élève à 9,02 %, indiquant une bonne performance globale et une discrimination homogène entre les classes malgré quelques confusions. La courbe ROC du modèle AFD sur l’échantillon test montre une capacité de discrimination élevée, avec un AUC de 0,873 pour la distinction binaire entre aa et ao (les classes les plus confondues).La forme de la courbe confirme que le modèle possède une bonne sensibilité et spécificité, ce qui valide ses performances observées sur l’échantillon test.
 
 
-```{r, warning=FALSE, results='hide'}
+```{r, message=FALSE, warning=FALSE, results='hide'}
 # Probabilités prédictes pour chaque classe sur l'échantillon test
 prob_test <- predict(modele_afd, newdata = test_afd)$posterior
 
