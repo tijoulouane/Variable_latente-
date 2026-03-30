@@ -260,7 +260,7 @@ plsda
 plotVar(plsda, comp = 1:2, var.names = FALSE, cutoff = 0.5)
 ```
 
-ON représente ici les variables (les 256 fréquences spectrales) sur le cercle de corrélation des deux premières composantes. Sur le même principe que pour l'acp, les variables proches du bord du cercle contribuent fortement, celles proches du centre sont peu discriminantes.
+On représente ici les variables (les 256 fréquences spectrales) sur le cercle de corrélation des deux premières composantes. Sur le même principe que pour l'acp, les variables proches du bord du cercle contribuent fortement, celles proches du centre sont peu discriminantes.
 
 L'intérêt du cercle de corrélation est d’analyser la relation entre les 256 variables initiales (les fréquences du log-périodogramme) et les deux premières composantes principales. 
 Au niveau de la spécification des axes, on peut émettre la même hypothèse que pour l'ACP avec l’axe 1 qui reflète l’intensité globale du signal, tandis que l’axe 2 différencie les groupes de fréquence. On observe que la plupart des variables se situent très proches du cercle extérieur, indiquant que ces deux composantes capturent efficacement la variabilité de nos données. On notera que les points se suivent tous créant une sorte de "chaîne", révélant une forte corrélation entre fréquences adjacentes, ce qui est cohérent avec la nature spectrale des signaux audio. 
@@ -281,7 +281,6 @@ plotIndiv(plsda, comp = 1:2, col = c("tomato","skyblue","darkgreen","orange","li
 
 Le graphique des individus (PlotIndiv) met en évidence une structuration spatiale marquée par le type de phonème, confirmant les tendances observées précédemment. On distingue deux pôles isolés : le phonème "sh" (violet) et le phonème "dcl" (vert), qui occupent des régions distinctes du plan, facilitant leur future classification. À l'inverse, le centre du graphique révèle un chevauchement important entre les classes "aa" (rouge), "ao" (bleu) et "iy" (orange). Cette proximité suggère une ressemblance spectrale étroite entre ces voyelles, ce qui représente le principal défi pour les modèles prédictifs. Les ellipses de confiance soulignent néanmoins que chaque phonème possède un centre de gravité propre, validant l'utilisation de méthodes discriminantes pour affiner la séparation de ces classes denses.
 
-Choix du nombre de composantes:
 
 ```{r}
 perf_plsda <- perf(plsda,
@@ -468,7 +467,7 @@ kbl(tab_ncomp,
 ```
 La sPLS-DA atteint un taux d'erreur de 8.3% à 5 composantes, soit des performances équivalentes aux modèles précédents. La convergence est cependant plus lente de part la contrainte de sélection des variables propre à cette méthode. On a malgré tout l'avantage d'intégrer la sélection des variables dans le modèle et non à postériori. À performances égales, la sPLS-DA constitue donc l'approche la plus rigoureuse.
 
-```{r}
+```{r, results='hide'}
 # réentrainement du modèle
 modele_splsda <- mixOmics::splsda(
   X_train, y_train,
@@ -721,7 +720,7 @@ Bien que la sPLS-DA offre une sélection de variables intégrée et une meilleur
 Après comparaison des modèles sur l’échantillon d’apprentissage, le modèle AFD a été retenu pour sa performance optimale. Nous allons ainsi évaluer sa performance sur l’échantillon test afin de confirmer sa capacité de discrimination et la robustesse des résultats obtenus. 
 
 
-```{r}
+```{r, warning=FALSE}
 test_afd <- data.frame(X_test, g = y_test)
 
 # Prédiction des classes sur le test
@@ -738,23 +737,16 @@ err_test <- mean(pred_test != test_afd$g)
 erreurs_par_classe_test <- diag(1 - prop.table(table(test_afd$g, pred_test), margin = 1))
 BER_test <- mean(erreurs_par_classe_test)
 
-# Afficher
-cat("Erreur test :", round(err_test*100,2), "%\n")
-cat("BER test :", round(BER_test*100,2), "%\n")
 
 tab_perf_test <- data.frame(
   Métrique = c("Taux d'erreur (test)", "BER (test)"),
-  Valeur   = paste0(round(c(err_test, BER_test) * 100, 2), "%")
-)
+  Valeur   = paste0(round(c(err_test, BER_test) * 100, 2), "%"))
 
 kbl(tab_perf_test,
     caption = "Taux d'erreur et BER — AFD sur l’échantillon test",
     col.names = c("Métrique", "Valeur")) |>
   kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
-
-# Si c'est binaire
-library(pROC)
 
 prob_test <- predict(modele_afd, newdata = test_afd)$posterior[,2]  # probabilité classe positive
 
@@ -766,9 +758,7 @@ cat("AUC test :", round(auc(roc_test),3), "\n")
 Le modèle AFD retenu a été validé sur l’échantillon test. La matrice de confusion montre que la plupart des phonèmes sont parfaitement discriminés, avec seulement quelques confusions entre aa et ao (47 et 39 erreurs respectivement). L’erreur globale observée est de 8,04 % est faible et montre la performance du modèle, tandis que le BER s’élève à 9,02 %, indiquant une bonne performance globale et une discrimination homogène entre les classes malgré quelques confusions. La courbe ROC du modèle AFD sur l’échantillon test montre une capacité de discrimination élevée, avec un AUC de 0,873 pour la distinction binaire entre aa et ao (les classes les plus confondues).La forme de la courbe confirme que le modèle possède une bonne sensibilité et spécificité, ce qui valide ses performances observées sur l’échantillon test.
 
 
-```{r, warning=FALSE}
-library(pROC)
-
+```{r, warning=FALSE, results='hide'}
 # Probabilités prédictes pour chaque classe sur l'échantillon test
 prob_test <- predict(modele_afd, newdata = test_afd)$posterior
 
