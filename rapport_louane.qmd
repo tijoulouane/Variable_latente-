@@ -360,6 +360,7 @@ ggplot(df_heatmap, aes(x = Prédit, y = Réel, fill = Freq)) +
   )
 ```
 
+Globalement, le modèle affiche une bonne précision, particulièrement pour le phonème « sh » (parfaitement prédit avec 224 occurrences) et « iy » (308 prédictions correctes). Cependant, on observe des confusions notables entre les sons proches, notamment entre « aa » et « ao », où 57 instances de « aa » ont été classées par erreur comme « ao » et 34 inversement.
 
 ```{r}
 # Calcul du taux d'erreur pour chaque phonème
@@ -375,7 +376,7 @@ error_by_class <- df_test_perf %>%
 # Création du barplot
 ggplot(error_by_class, aes(x = Reel, y = Taux_Erreur, fill = Reel)) +
   geom_bar(stat = "identity", color = "black", show.legend = FALSE) +
-  scale_fill_manual(values = c("red","blue","green","orange","purple")) + # Vos couleurs habituelles
+  scale_fill_manual(values = c("tomato","skyblue","darkgreen","orange","lightpink")) +
   geom_text(aes(label = paste0(round(Taux_Erreur, 1), "%")), vjust = -0.5, size = 4) +
   labs(
     title = "Taux d'Erreur de Classification par Phonème (Test)",
@@ -389,6 +390,7 @@ ggplot(error_by_class, aes(x = Reel, y = Taux_Erreur, fill = Reel)) +
     axis.text = element_text(size = 11))
 ```
 
+Ce graphique à barres complète l'analyse en illustrant le taux d'erreur de classification pour chaque phonème. On constate une disparité importante dans la performance du modèle : le phonème « aa » est le plus problématique avec un taux d'erreur de 32,4 %, suivi de « ao » à 12,9 %, confirmant la difficulté du modèle à distinguer ces voyelles ouvertes. À l'inverse, les phonèmes « iy » et « sh » frôlent la perfection avec respectivement seulement 1 % et 0 % d'erreur, indiquant que leurs caractéristiques acoustiques sont très nettement identifiées par l'algorithme.
 
 # Synthèse finale
 
