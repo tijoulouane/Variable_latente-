@@ -40,13 +40,14 @@ library(MASS)
 
 # 1/ Introduction
 
-La reconnaissance automatique de la parole constitue un domaine majeur de la science des données, avec des utilisations multiples telles que les assistants vocaux ou la transcription automatique de l'oral à l'écrit . Elle repose sur la capacité à analyser des signaux audio complexes afin d’identifier les unités élémentaires du langage, appelées phonèmes.
+La reconnaissance automatique de la parole est un domaine important de la science des données. Elle est utilisée dans de nombreuses applications comme les assistants vocaux ou la transcription automatique. Son objectif est d’analyser des signaux audio afin d’identifier des unités du langage appelées phonèmes.
 
-Dans ce cadre, ce projet s’appuie sur un jeu de données issu de l’ouvrage The Elements of Statistical Learning, construit à partir de la base TIMIT, largement utilisée en recherche en reconnaissance vocale. L’objectif est de discriminer cinq phonèmes distincts à partir de caractéristiques spectrales extraites de trames vocales.
+Dans ce projet, nous utilisons un jeu de données issu de The Elements of Statistical Learning, construit à partir de la base TIMIT. L’objectif est de reconnaître cinq phonèmes différents à partir de caractéristiques extraites de signaux vocaux.
 
-Ce problème s’inscrit dans un cadre de classification supervisée en grande dimension, caractérisé par un nombre élevé de variables explicatives et des corrélations potentielles entre celles-ci. Dans ce contexte, des méthodes adaptées telles que l’analyse discriminante et la PLS-DA sont mobilisées afin de modéliser efficacement les données.
+Il s’agit d’un problème de classification supervisée avec un grand nombre de variables explicatives, souvent corrélées. Pour cela, nous utilisons des méthodes adaptées comme la PLS-DA et l’analyse discriminante.
 
-L’étude s’organise en deux temps. Une analyse exploratoire non supervisée permettra d’examiner la structure des données, avant la mise en œuvre de méthodes de classification supervisée. Ensuite une analyse supervisé se fera en fonction de plusieurs modèles et enfin les modèles seront comparé puis le modèle retenu sera évaluées sur un échantillon test afin d’analyser leur capacité de généralisation.
+L’étude se déroule en deux étapes. D’abord, une analyse exploratoire permet de mieux comprendre les données.Ensuite, plusieurs méthodes de classification supervisée sont mises en place et comparées entre elles sur l’échantillon d’apprentissage. Enfin à l’issue de cette comparaison, seul le modèle le plus performant est retenu. Celui-ci est ensuite évalué sur un échantillon test afin de mesurer sa capacité de généralisation.
+
 
 # 2/ Présentation du jeu de données
 
@@ -92,9 +93,8 @@ On remarque que les classes sont globalement bien représentées, bien que certa
 
 ### 2.1.2 Découpage Apprentissage / Test
 
-Le découpage des données est défini à partir de la colonne `speaker` : les enregistrements dont l’identifiant commence par `train.` constituent l’échantillon d’**apprentissage**, tandis que ceux commençant par `test.` constituent l’échantillon de **test**.
+Le découpage des données est défini à partir de la colonne `speaker` : les enregistrements dont l’identifiant commence par `train.` constituent l’échantillon d’apprentissage, tandis que ceux commençant par `test.` constituent l’échantillon de test.
 
-Ce découpage est basé sur les locuteurs, ce qui garantit un protocole rigoureux : le modèle est évalué sur des voix qu’il n’a jamais entendues lors de l’apprentissage.
 
 ```{r}
 # train/test
@@ -120,7 +120,7 @@ kbl(tab_split, caption = "Taille des échantillons") |>
 
 Après découpage basé sur les locuteurs, l’échantillon d’apprentissage contient 3340 trames (74,1 % du jeu de données) et l’échantillon de test contient 1169 trames (25,9 %).
 
-Cette répartition garantit que le modèle sera évalué sur des trames vocales provenant de locuteurs jamais vus lors de l’apprentissage, ce qui constitue un protocole rigoureux et réaliste pour l’analyse des phonèmes.
+Cette répartition garantit que le modèle sera évalué sur des trames vocales provenant de locuteur, ce qui permet de tester le modèle sur des voix jamais vues pendant l’apprentissage, permettant un protocole rigoureux et réaliste pour l’analyse des phonèmes.
 
 ### 2.1.3 Représentativité
 
@@ -145,7 +145,7 @@ kbl(tab_prop, caption = "Proportion (%) de chaque phonème dans chaque échantil
 
 ### 3.1.1 Justification de l'Analyse en Composantes Principales
 
-Nous passons maintenant à la partie d’analyse factorielle. Nous choisissons de réaliser une analyse en composantes principales (ACP), car notre jeu de données est composé principalement de variables quantitatives (x.1 à x.256). L’ACP simplifie l’analyse en réduisant le nombre de variables sans perte significative d’information, ce qui est particulièrement utile ici, étant donné le grand nombre de variables spectrales corrélées entre elles.
+Nous passons maintenant à la partie d’analyse factorielle. Nous choisissons de réaliser une analyse en composantes principales (ACP), car notre jeu de données est composé principalement de variables quantitatives (x.1 à x.256). L’ACP simplifie l’analyse en réduisant le nombre de variables sans perte significative d’information, ce qui est particulièrement utile ici, étant donné le grand nombre de variables corrélées entre elles.
 
 Cette analyse permettra de mieux comprendre la structure des données et d’observer si certaines trames vocales (ou phonèmes) présentent des regroupements naturels sur la base de leurs caractéristiques spectrales.
 
@@ -166,10 +166,12 @@ Le résultat de l'indice KMO est supérieur à 0,6, il est exactement de 0,995, 
 
 ```{r}
 p_values <- sapply(X_train, function(x) shapiro.test(x)$p.value)
-sum(p_values < 0.05)  # Combien de variables ne sont pas normales
+nb_var_pas_normales <- sum(p_values < 0.05)# Combien de variables ne sont pas normales
+cat("Nombre de variables qui ne suivent pas une loi normale :", nb_var_pas_normales, "\n")
+
 ```
 
-Le test de normalité de Shapiro-Wilk indique que toutes nos variables explicatives ne suivent pas une loi normale, ce qui est attendu pour des données spectrale. Etant donné l’asymétrie des données, le test de bartlett n'est alors pas fiable. On doit donc utiliser une autre méthode pour vérifier la corrélation entre les variables. 
+Le test de normalité de Shapiro-Wilk indique que toutes nos variables explicatives ne suivent pas une loi normale, ce qui est attendu pour des données spectrale. Etant donné l’asymétrie des données, le test de bartlett n'est alors pas fiable. On doit donc utiliser une autre méthode pour vérifier la corrélation entre les variables.
 
 #### 3.1.1.3 Déterminant de la matrice de corrélation
 
@@ -215,10 +217,10 @@ fviz_eig(acp,
 L’analyse en composantes principales a produit 256 composantes principales, mais les premières concentrent l’essentiel de l’information :
 
 -   La première composante principale (Comp 1) explique 55 % de la variance totale des données.
--   Avec les deux premières composantes, on retient déjà 70 % de l’information, ce qui permet de visualiser la majorité de la structure des données sur le plan .
+-   Avec les deux premières composantes, on retient déjà 70 % de l’information, ce qui permet de visualiser la majorité de la structure des données sur le plan.
 -   Les composantes suivantes expliquent progressivement moins de variance, chacune apportant moins de 5 % à la variance totale.
 
-Cette répartition indique qu’il est possible de réduire la dimension des 256 variables Nous avons choisi de représenter les données sur le plan des deux premières composantes, car elles expliquent 70 % de la variance totale et permettent d’observer les regroupements naturels des phonèmes, tout en conservant la majeure partie de l’information. En prime, conserver uniquement les deux premières dimensions nous permet de visualiser l'acp sur un plan en 2 dimensions, beaucoup plus facile à comprendre.
+Cette répartition indique qu’il est possible de réduire la dimension des 256 variables. Nous avons choisi de représenter les données sur le plan des deux premières composantes, car elles expliquent 70 % de la variance totale et permettent d’observer les regroupements naturels des phonèmes, tout en conservant la majeure partie de l’information. De plus, conserver uniquement les deux premières dimensions nous permet de visualiser l'acp sur un plan en 2 dimensions, beaucoup plus facile à comprendre.
 
 #### 3.1.2.2 Projection sur le plan
 
@@ -240,16 +242,18 @@ Cependant, ces résultats sont à interpréter avec prudence compte tenu de la f
 
 # 4/ Apprentissage supervisé
 
-L’analyse exploratoire non supervisée (ACP) a permis de visualiser la structure générale des données et d’identifier des regroupements naturels. Ces informations servent de repères pour orienter les méthodes supervisées, mais ne constituent pas une étape de classification en soi.
 
-Nous passons donc maintenant à l’application d’un modèle supervisé, PLS-DA (Partial Least Squares Discriminant Analysis), pour la discrimination des phonèmes. Cette méthode est adaptée aux données à hautes dimensions et corrélées. Elle convient particulièrement ici car notre variable à expliquer (le phonème prononcé) est qualitative. Elle est développée en cinq classes : "aa", "ao", "dcl", "iy", "sh". 
-La PLS classique s'appliquant aux variables quantitatives, on utilise ici la PLS-DA qui permet de réduire la dimension des données tout en identifiant les axes maximisant la séparation entre les phonèmes. C'est donc une approche efficace pour la classification supervisée de nos données audio.
+L’analyse exploratoire non supervisée (ACP) a permis de visualiser la structure générale des données et d’identifier des regroupements naturels entre les phonèmes. Ces informations servent de repères pour guider l’analyse supervisée, mais elles ne permettent pas à elles seules de classer les phonèmes.
+
+Nous passons donc maintenant à la PLS-DA (Partial Least Squares Discriminant Analysis), une méthode supervisée adaptée aux données de grande dimension et fortement corrélées. Elle permet de réduire la dimension tout en maximisant la séparation entre les cinq phonèmes : "aa", "ao", "dcl", "iy" et "sh". Contrairement à la PLS classique, qui s’applique uniquement aux variables quantitatives, la PLS-DA utilise l’information des classes pour construire des axes discriminants efficaces pour la classification des données audio.
+
 
 ## 4.1 PLS-DA
 
-On entraîne un modèle PLS-DA avec 10 composantes sur l'ensemble des données. Nous en prenons 10 car nous ne savons pas encore combien de composantes sont vraiment utiles, on affinera le nombre de composantes par la suite. On choisit également ce nombre car dans la littérature, nous avons vu qu'il était très rare de prendre au delà de 10 composantes donc nous supposons que c'est également le cas ici. 
 
-Le modèle PLS-DA a donc été ajusté sur le jeu de données composé de 3340 observations et 256 variables explicatives, avec une variable y comportant 5 classes correspondant aux phonèmes. Dans un premier temps, il a été évalué avec 10 composantes et sans sélection préalable des variables.
+On entraîne un modèle PLS-DA avec 10 composantes sur l'ensemble des données. Nous en prenons 10 car nous ne savons pas encore combien de composantes sont vraiment utiles, on affinera le nombre de composantes par la suite. On choisit également ce nombre car dans la littérature, nous avons vu qu'il était très rare de prendre au delà de 10 composantes donc nous supposons que c'est également le cas ici.
+
+Le modèle PLS-DA a donc été ajusté sur le jeu de données composé de 3340 observations et 256 variables explicatives, avec une variable Y comportant 5 classes correspondant aux phonèmes. Dans un premier temps, il a été évalué sur l'ensemble des composantes et sans sélection préalable des variables.
 
 ```{r, results='hide'}
 set.seed(42)
@@ -273,16 +277,17 @@ plot(perf_plsda,
      legend.position = "horizontal")
 ```
 
-Avant de passer à la description de ce graphe, on notera que overall représente le taux d'erreur global moyen pour l'ensemble des classes; BER la moyenne des erreurs par classe tandis que les trois types de point représentent chacun une manière d'assignation 
+Avant de passer à la description de ce graphe, on notera que overall représente le taux d'erreur global moyen pour l'ensemble des classes; BER la moyenne des erreurs par classe tandis que les trois types de point représentent chacun une manière d'assignation
 
-L'analyse de la performance du modèle montre une diminution drastique du taux d'erreur entre la 1ère et la 5ème composante, passant d'environ 40% à moins de 10%. Entre les composantes 3 et 5, l'erreur se stabilise (un plateau se créer). Au delà le gain de classification devient négligeable. A partir de 5, les courbes sont presques toutes stables, indiquant un risque de surapprentissage si on sélectionne plus de dimensions.
+L'analyse de la performance du modèle montre une diminution du taux d'erreur entre la 1ère et la 5ème composante, passe d'environ 40% à moins de 10%. Entre les composantes 3 et 5, l'erreur se stabilise. Au delà le gain de classification devient négligeable. A partir de 5, les courbes sont presques toutes stables, indiquant un risque de surapprentissage si on sélectionne plus de dimensions.
 
 On observe également que les distances "max.dist" (rose) et "mahalanobis.dist" (noir) offrent les meilleures performances finales, De plus, on a un taux d'erreur global (overall) et un taux d'erreur équilibré (BER - Balanced Error Rate) très proches.
+
 Le premier mesurant la proportion d'individus mal classés dans les données et le deuxième le taux d'erreur pour chaque classe. Leur proximité indique donc que le modèle a des performances similaires pour chaque phonème et qu'il n'y a pas de biais d'estimation. Ainsi, les conclusions qu'on peut tirer sont comparables entre chaque groupe. Cependant, la "centroids.dist" est beaucoup plus haute que les deux autres, montrant son inadéquation pour ce jeu de données. A choisir, on optera pour une des deux premières. Soit une assignation selon le score latent (max.dist) soit en tenant compte de la variance et de la corrélation (Mahalanobis.dist).
 
 L'erreur résiduelle inférieure à 10% est par ailleurs cohérente avec le chevauchement partiel observé entre "aa", "ao" et "iy" dans le plan des individus. Elle reflète une proximité acoustique réelle plutôt qu'une limite du modèle.
 
-On s'intéresse maintenant au choix du nombre de variables.
+On s'intéresse maintenant au choix du nombre de composantes.
 ```{r}
 # Extraction de choice.ncomp
 tab_choice <- as.data.frame(perf_plsda$choice.ncomp)
@@ -321,7 +326,6 @@ plsda <- mixOmics::plsda(X_train, y_train, ncomp = 4)
 ```
 On voit bien qu'au delà de 5 composantes, il y a très peu de gains d'informations car le taux d'erreur est proche. Opter pour 7 ou 10 composantes n'a donc aucun sens car on augmenterait la complexité du modèle. Ensuite, pour trancher entre 4 et 5 composantes, on a chercher dans la littérature et il s'avère qu'en chimiométrie, il est préférable de choisir K-1 composantes (par rapport au nombre de classes). De plus, le graphique précédent montrait clairement qu'entre 4 et 5 composantes, on n'avait plus de réelles amélioration des erreurs. Pour finir, si on met en perspective avec la validation croisée qui nous montre centroids.dist qui opte pour 4, notre choix définitif s'arrête donc à 4 composantes. Ce qui permet également de privilégier la parcimonie.
 
-On peut désormais s'intéresser à la composition de graphique de notre modèle:
 
 On s'intéresse d'abord à la spécification de chaque axe.
 ```{r, warning=FALSE}
@@ -360,16 +364,16 @@ Nos hypothèses précédentes sont ici confirmées avec notamment le premier pla
 Les ellipses de confiance soulignent néanmoins que chaque phonème possède un centre de gravité propre, validant l'utilisation de méthodes discriminantes pour affiner la séparation de ces classes denses.
 
 Le deuxième plan (composante 3 et 4) explique lui 7% de la variance, ce qui confirme notre choix de ne pas prendre au delà de 4 composantes. Ces deux dimensions permettent d'apporter une précision au niveau des 3 groupes se chevauchant dans le plan 1-2. On a désormais le phonème "iy" qui s'écarte totalement des autres pour se retrouver sur la droite (de par la composante 4) tandis qu'une séparation se fait entre "aa" et "ao" par la composante 3. Effectivement, "aa" est située plus en hauteur que "ao". On voit par contre que "sh" et "dcl" ne sont absolument pas expliqués dans ces dimensions.
-Il semblerait donc ici que la composante 3 permette de différencier les sons plus aigus. Pour l'axe 4, on ne peut pas émettre d'hypothèse solide sans avoir accès aux fréquences (en hertz) des différents phonèmes. La seule hypothèse trouvée semble dans la prononciation avec le phonème "aa" qui implique une plus grande ouverture de la bouche 
+Il semblerait donc ici que la composante 3 permette de différencier les sons plus aigus. Pour l'axe 4, on ne peut pas émettre d'hypothèse solide sans avoir accès aux fréquences (en hertz) des différents phonèmes. La seule hypothèse trouvée semble dans la prononciation avec le phonème "aa" qui implique une plus grande ouverture de la bouche
 
 Dernier point, on regarde la capacité du modèle à capter la bonne classe pour chaque variable.
 
-```{r, results='hide', echo=FALSE}
+```{r, results='hide'}
 auc.plsda <- auroc(plsda, roc.comp = 5)
 ```
 Une AUC proche de 1 (l'air sous la courbe) indique une excellente discrimination et donc le phonème associé à chaque variable.
 
-Les courbes ROC confirment l'excellente performance prédictive du modèle, avec des scores AUC (Aire Sous la Courbe) proches de la perfection pour l'ensemble des modèles. 
+Les courbes ROC confirment l'excellente performance prédictive du modèle, avec des scores AUC (Aire Sous la Courbe) proches de la perfection pour l'ensemble des modèles.
 On retrouve nos deux groupes qui se distinguent: d'un côté les trois phonèmes qu'on a réussi à identifier visuellement ("sh","iy","dcl") avec une probabilité d'identifier la bonne classe par rapport aux autres de plus de 99%. et de l'autre nos phonèmes "ao" et "aa" avec une AUC autour de 0.96-0.97 ce qui confirme là encore la représentation graphique où on les voyait tout les deux superposés. Si visuellement on avait du mal à disinguer les deux, le modèle ne se trompe en réalité quasiment jamais étant donné qu'au minimum, il classe correctement le phonème écouté dans sa classe associé.
 
 On regarde maintenant si toutes les variables ont une contribution pertinente dans le modèle.
@@ -389,7 +393,7 @@ Le VIP (Variable Importance in Projection) mesure la contribution de chaque vari
 Au vu des résultats, on a plus de 75% des variables qui se situent en dessous du seuil critique pour seulement 49 (sur 256) situées au dessus. On a donc une majeure partie de nos données qui ne contribuent que très peu à la discrimination.
 
 ## 4.2 Modèle réduit
-On va ici créer un second modèle qui se base sur le critère du VIP pour comparer avec le modèle complet. 
+On va ici créer un second modèle qui se base sur le critère du VIP pour comparer avec le modèle complet.
 ```{r}
 # 2. Identifier les variables importantes
 variables_importantes <- names(ldaVIP[ldaVIP > 1])
@@ -455,7 +459,7 @@ Ici, en combinant les deux approches, on décide d'opter pour 5 composantes car 
 modele_reduit <- mixOmics::plsda(X_reduit, y_train, ncomp = 5)
 ```
 
-On s'intéresse maintenant à la partie graphique comme précédemment. 
+On s'intéresse maintenant à la partie graphique comme précédemment.
 ```{r, warning=FALSE}
 plotVar(modele_reduit, comp = 1:2, var.names = FALSE)
 ```
@@ -466,7 +470,7 @@ On peut cependant émettre les mêmes hypothèses que pour la première PLS-DA a
 ```{r}
 plotVar(modele_reduit, comp = 3:4, var.names = FALSE)
 ```
-En regardant le cercle pour les composantes 3 et 4, il semblerait qu'on obtienne les mêmes résultats que précédemment, avec une spécification des différents phonèmes sur ces dimensions. Cependant, les points étant au centre du graphe, cette spécification devrait être légère. 
+En regardant le cercle pour les composantes 3 et 4, il semblerait qu'on obtienne les mêmes résultats que précédemment, avec une spécification des différents phonèmes sur ces dimensions. Cependant, les points étant au centre du graphe, cette spécification devrait être légère.
 
 ```{r, fig.show='hide'}
 plotVar(modele_reduit, comp = 4:5, var.names = FALSE)
@@ -482,7 +486,7 @@ plotLoadings(modele_reduit, comp = 4, method = 'mean', contrib = 'max')
 plotLoadings(modele_reduit, comp = 5, method = 'mean', contrib = 'max')
 ```
 Concernant la spécification de chaque axe, on observe le résultat inverse que pour le premier modèle. C'est principalement le phonème "aa" qui caractérise l'axe 1. "sh" semble totalement absent ici.
-On peut même aller plus loin en disant que sur l'ensemble des dimensions, les phonèmes qui avant étaient superposés semble permettre la spécification de l'ensemble des dimensions. Chaque phonème se comportera alors en accord ou opposition avec les phonemes "aa" et "ao". 
+On peut même aller plus loin en disant que sur l'ensemble des dimensions, les phonèmes qui avant étaient superposés semble permettre la spécification de l'ensemble des dimensions. Chaque phonème se comportera alors en accord ou opposition avec les phonemes "aa" et "ao".
 
 On passe alors à la visualisation graphique du modèle.
 ```{r}
@@ -504,10 +508,10 @@ plotIndiv(modele_reduit, comp = 4:5, col = c("tomato","skyblue","darkgreen","ora
 
 ```
 
-```{r, results='hide',echo=FALSE}
+```{r, results='hide'}
 auc.reduit <- auroc(modele_reduit, roc.comp = 5)
 ```
-Là encore on s'intéresse aux performances du modèle avec l'AUC et là encore, les courbes ROC confirment l'excellente performance prédictive du modèle, avec des scores AUC (Aire Sous la Courbe) proches de la perfection pour l'ensemble des modèles. 
+Là encore on s'intéresse aux performances du modèle avec l'AUC et là encore, les courbes ROC confirment l'excellente performance prédictive du modèle, avec des scores AUC (Aire Sous la Courbe) proches de la perfection pour l'ensemble des modèles.
 On retrouve nos deux groupes qui se distinguent: d'un côté les trois phonèmes qu'on a réussi à identifier visuellement ("sh","iy","dcl") et de l'autre nos phonèmes "ao" et "aa" avec une AUC plus faible ce qui confirme là encore la représentation graphique où on les voyait tout les deux superposés. Si visuellement on avait du mal à disinguer les deux, le modèle ne se trompe en réalité quasiment jamais étant donné qu'au minimum, il classe correctement le phonème écouté dans sa classe associé.
 
 
@@ -515,7 +519,7 @@ On retrouve nos deux groupes qui se distinguent: d'un côté les trois phonèmes
 
 Sur cette deuxième comparaison, on réalise encore une sélection de variables mais cette fois, de manière automatique. On appelle cette méthode une sPLS-DA
 
-ON commence par créer le modèle.
+On commence par créer le modèle.
 ```{r,}
 # Modèle sPLS-DA initial avec tous les composantes
 modele_splsda <-  mixOmics::splsda(X_train, y_train, ncomp = 10)
@@ -552,19 +556,19 @@ tab_keepX <- data.frame(
 )
 
 # Génération du tableau avec kableExtra
-kbl(tab_keepX, 
+kbl(tab_keepX,
     caption = "Nombre optimal de variables sélectionnées par composante (keepX)",
     col.names = c("Dimension", "Nombre de variables (keepX)"),
-    align = "cl") |> 
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
-                full_width = FALSE, 
+    align = "cl") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
                 position = "center") |>
   column_spec(1, bold = TRUE, border_right = TRUE)
 ```
 Ce modèle se construit selon une méthode de sélection croisée qui vise à trouver le nombre de variables nécessaires pour déterminer au mieux chaque composante.
 La première composante étant la plus importante, on s'attends à ce que ce soit encore elle qui explique la majorité de la variance. Le modèle a donc besoin de beaucoup de variables pour bien différencier chaque phonème.
-Ensuite, on diminue de moitié, indiquant qu'on cherche à déterminer un aspect plus précis pour différencier certains phonèmes (par exmple l'aigu). 
-On a ensuite un nombre constant entre les dimensions 3,4 et 5, ce qui peut s'expliquer par le fait qu'on cherche les derniers petits détails donc on a besoin de groupes équivalents en nombre. 
+Ensuite, on diminue de moitié, indiquant qu'on cherche à déterminer un aspect plus précis pour différencier certains phonèmes (par exmple l'aigu).
+On a ensuite un nombre constant entre les dimensions 3,4 et 5, ce qui peut s'expliquer par le fait qu'on cherche les derniers petits détails donc on a besoin de groupes équivalents en nombre.
 Dans les dernières composantes, le modèle semble essayer de trouver autre chose pour différencier les variables en repartant d'un groupe de même amplitude qu'en dimension 1.
 
 
@@ -582,7 +586,7 @@ plot(perf_splsda,
      sd  = TRUE,
      legend.position = "horizontal")
 ```
-A la difference de précédemment et malgré la spécification large de 10 composantes dans le modèle, la fonction arrête automatiquement le grpahique à 5 composantes. C'est parce que la fonction détecte qu'après 5 composantes on ne constate pas de gain significatif. 
+On observe ici que l'absence de gain d'information suite à l'ajout d'une nouvelle composante survient dès la cinquième composante. De plus, la différence de gain entre la quatrième et cinquième dimension semble négligeable.
 
 cette observation corrobore avec le nombre de variables utilisées pour déterminer chaque axe. En effet, le fait que le modèle est à nouveau besoin d'un échantillon de 50 variables pour la dimension 6 montre en réalité que les différences sont minimes et donc que le modèle cherche à tout prix à en trouver une, quitte à biaiser les résultats.
 
@@ -617,7 +621,7 @@ kbl(tab_ncomp,
   kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
 ```
-La sPLS-DA voit une augmentation de presque 1% entre la quatrième et la cinquième composante, ce qui reste importatn. Couplé au fait que le modèle s'arrête à 5, on estime qu'il considère que pour 4 composantes il reste toujours une part de variance à expliquée qui est finalement apportée par la dernière. On peut donc penser que la "mahalanobis.dist" permet d'apporter une nuance concrète entre "aa" et "ao".
+La sPLS-DA voit une augmentation de presque 1% entre la quatrième et la cinquième composante, ce qui reste important. Couplé au fait que le modèle s'arrête à 5, on estime qu'il considère que pour 4 composantes il reste toujours une part de variance à expliquer qui est finalement apportée par la dernière. On peut donc penser que la "mahalanobis.dist" permet d'apporter une nuance concrète entre "aa" et "ao".
 
 ```{r, results='hide'}
 # réentrainement du modèle
@@ -632,16 +636,16 @@ par(mfrow=c(1,2))
 plotVar(modele_splsda, comp = 1:2, var.names = FALSE)
 plotVar(modele_splsda, comp = 3:4, var.names = FALSE)
 ```
-Sur les premières dimensions, on observe deux groupes biens distincts et très corrélés avec les dimensions (très proches du bord). Comme la différence d'énergie entres les différents types de son vus précédemment est la principale information du signal, on peut émettre la même hypothèse que précedemment: l'axe 1 représente l'intensité et l'axe 2 différencie les groupes de fréquences.
-Ce qui est plus intéressant que précédemment, c'est lorsqu'on regarde les dimensions 3 et 4. On a réellement un apport de ces dimensions avec 3 groupes qui se forment et qui sont plus proches des axes. 
+Sur les premières dimensions, on observe deux groupes biens distincts et très corrélés avec les dimensions (très proches du bord). Comme la différence d'énergie entres les différents phonèmes est la principale information du signal, on peut émettre la même hypothèse que précedemment: l'axe 1 représente l'intensité et l'axe 2 différencie les groupes de fréquences.
+Ce qui est plus intéressant que précédemment, c'est lorsqu'on regarde les dimensions 3 et 4. On a réellement un apport de ces dimensions avec 3 groupes qui se forment et qui sont plus proches des axes.
 
-Même lorsqu'on compare chaque dimension avec l'axe 5, on remarque le même processus, avec la création de différents groupes, confirmant l'apport d'informtion de cette dimension.
+Même lorsqu'on compare la relation entre l'axe 4 et 5, on remarque le même processus, avec la création de plusieurs, confirmant l'apport d'information de cette dimension.
 
 ```{r, fig.show='hide'}
 plotVar(modele_splsda, comp = 4:5, var.names = FALSE)
 ```
 
-On voit donc que la sPLS-DA sélectionne vraiment les variables les plus pertinents pour expliquer chaque axe.
+On voit donc que la sPLS-DA sélectionne vraiment les variables les plus pertinentes pour expliquer chaque axe.
 
 ```{r, fig.show='hide'}
 plotLoadings(modele_splsda, comp = 1, method = 'mean', contrib = 'max')
@@ -673,8 +677,8 @@ plotIndiv(modele_splsda,
           legend = TRUE,
           title = "sPLS-DA - Plan des individus")
 ```
-Visuellement, on observe toujours la séparation très nette entre "sh" et "dcl" dûe à l'axe 1. L'axe 2 permet ici de distinguer clairements les voyelles des autres sons. Malgré ça, nos deux jumeaux sont toujours superposés. 
-L'axe 3 permet encore une fois d'isolé totalement "iy", confirmant notre hypothèse de spécification par le caractère aigu du phonème. Et l'axe 4 nous permet d'avoir une distinction beaucoup plus marquée que ce qu'on a observé jusque là entre les deux jumeaux. Ces résultats confirment encore une fois l'adéquation du modèle sPLS-DA.
+Visuellement, on observe toujours la séparation très nette entre "sh" et "dcl" dûe à l'axe 1. L'axe 2 permet ici de distinguer clairement les voyelles des autres sons. Malgré ça, nos deux jumeaux sont toujours superposés.
+L'axe 3 permet encore une fois d'isoler totalement "iy", confirmant notre hypothèse de spécification par le caractère aigu du phonème. Et l'axe 4 nous permet d'avoir une distinction beaucoup plus marquée que ce qu'on a observé jusque là entre les deux jumeaux. Ces résultats confirment encore une fois l'adéquation du modèle sPLS-DA.
 
 L'axe 5 permet ici de confirmer une certaine nuance observée dans l'axe 4, sans être totalement flagrante car "ao" se retrouve en grande partie superposé sur "aa".
 ```{r, fig.show='hide'}
@@ -687,20 +691,32 @@ plotIndiv(modele_splsda,
           legend = TRUE,
           title = "sPLS-DA - Plan des individus")
 ```
-```{r, results='hide',echo=FALSE}
+
+```{r, results='hide'}
 auc.splsda <- auroc(modele_splsda, roc.comp = 5)
 ```
-Au niveau des AUC, on est sur des performances preque parafaite pour le premier groupe observé précédement avec des AUC de 0.999. Tandis que pour les jumeaux, on reste dans les mêmes standards que précédemment, autour de 0.96/0.97.
-
+Au niveau des AUC, on est sur des performances preque parfaite pour le premier groupe précédement observé avec des AUC de 0.999. Tandis que pour les jumeaux, on reste dans les mêmes standards, autour de 0.96/0.97. 
 ## 4.4 AFD
 
-L’Analyse des Fonctions Discriminantes permet de synthétiser l’information contenue dans nos variables explicatives afin de maximiser la séparation entre les groupes. Nous présentons ci-dessous le modèle complet et la proportion de variance expliquée par chaque axe discriminant.
-
+L’Analyse Factorielle Discriminante permet de synthétiser l’information contenue dans nos variables explicatives afin de maximiser la séparation entre les groupes. Nous présentons ci-dessous le modèle complet et la proportion de variance expliquée par chaque axe discriminant.
 ```{r}
 # Modèle AFD complet
 train_afd <- data.frame(X_train, g = y_train)
 modele_afd <- lda(g ~ ., data = train_afd)
+```
 
+Avant de procéder à l'analyse de ce modèle, il est important de vérifier l’homogénéité des matrices de covariance entre les groupes à l’aide du test de Box (Box’s M-test):
+
+```{r}
+#  Homogénéité des matrices de covariance (Box-M)
+boxm_test <- boxM(train_afd[, !(names(train_afd) =="g")],
+                  train_afd$g)
+print(boxm_test)
+```
+La p-value, inférieure à 0,05, indique une hétérogénéité des matrices de covariance, probablement liée au grand nombre d’observations. Il faudrait donc procéder à une analyse quadratique mais n'ayant pas les connaissance pour, nous préférons éviter de se lancer dans la construction de ce modèle.
+
+On poursuit donc notre analyse, même si les résultats n'ont pas de valeur statistique réelle.
+```{r}
 # Proportion de variance expliquée par chaque axe
 variance_afd <- modele_afd$svd^2 / sum(modele_afd$svd^2)
 
@@ -718,19 +734,9 @@ kbl(tab_variance,
   row_spec(which(cumsum(variance_afd) >= 0.80)[1],  
            bold = TRUE)
 ```
+On voit tout de suite que cette méthode semble encore plus efficace que les méthodes de PLS-DA car avec seulement 3 dimensions, on capte presque la totalité de l'information.
+Comme précédemment, l'axe 1 explique la majeure partie de l'information, ce qui montre l'importance du signal (en hertz) dans l'identification des phonèmes. Couplée à la deuxième dimensions, elles captent 87% de l'information ce qui suffit pour obtenir une représentation graphique compréhensible. 
 
-Les axes discriminants de l’AFD expliquent la majorité de la variance entre les classes : LD1 capture 58,71 % de la variance, LD2 28,15 %, portant la variance cumulée à 86,87 % sur les deux premiers axes. LD3 et LD4 contribuent respectivement à 11,49 % et 1,64 %, permettant d’atteindre 100 % de la variance expliquée.
-
-
-Avant de procéder, il est important de vérifier l’homogénéité des matrices de covariance entre les groupes à l’aide du test de Box (Box’s M-test):
-
-```{r}
-#  Homogénéité des matrices de covariance (Box-M)
-boxm_test <- boxM(train_afd[, !(names(train_afd) =="g")],
-                  train_afd$g)
-print(boxm_test)
-```
-La p-value, inférieure à 0,05, indique une hétérogénéité des matrices de covariance, probablement liée au grand nombre d’observations. Néanmoins, au vu des excellentes performances de classification (AUC) et des taux d’erreur observés par la suite, l’utilisation de l’AFD reste pertinente.
 
 Le plan des individus obtenu par l’AFD permet de visualiser clairement la séparation entre les groupes sur les deux premiers axes discriminants:
 ```{r}
@@ -738,6 +744,7 @@ pred <- predict(modele_afd)
 afd_scores <- data.frame(
   LD1    = pred$x[, 1],
   LD2    = pred$x[, 2],
+  LD3    = pred$x[, 3],
   classe = y_train)
 
 ggplot(afd_scores, aes(x = LD1, y = LD2, color = classe)) +
@@ -750,50 +757,69 @@ ggplot(afd_scores, aes(x = LD1, y = LD2, color = classe)) +
     y = paste0("LD2 (", round(modele_afd$svd[2]^2 /
                 sum(modele_afd$svd^2) * 100, 1), "% var. expl.)")) + theme_bw()
 
+ggplot(afd_scores, aes(x = LD2, y = LD3, color = classe)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  stat_ellipse(level = 0.95) +
+  labs(
+    title = "AFD - Plan des individus",
+    x = paste0("LD2 (", round(modele_afd$svd[2]^2 /
+                sum(modele_afd$svd^2) * 100, 1), "% var. expl.)"),
+    y = paste0("LD3 (", round(modele_afd$svd[3]^2 /
+                sum(modele_afd$svd^2) * 100, 1), "% var. expl.)")) + theme_bw()
+
 ```
 
-L'AFD organise bien les sons en capturant 87 % des différences importantes sur les deux premiers axes. L’axe LD1 sépare clairement les voyelles aa et ao à gauche, et l’axe LD2 distingue le son sh en haut des sons dcl et iy en bas. Même si aa et ao se confondent parfois à cause de leur similarité naturelle, cela n’affecte pas beaucoup le taux d’erreur global.
+L’axe LD1 sépare clairement les voyelles aa et ao à gauche, résultat constaté à plusieurs reprises dans cette analyse. L’axe LD2 isole le son sh en haut tandis que les sons dcl et iy restent en bas. On a donc deux groupes de phonèmes qui sont superposés
+L'isolement de chaque groupe est ici plus mis en évidence que sur les méthodes précédentes.
 
-"Les performances du modèle AFD sont évaluées à la fois sur les données d’entraînement et via une validation croisée leave-one-out (LOO). Le tableau ci-dessous résume les taux d’erreur et le Balanced Error Rate (BER).
+Donc visuellement, contrairement à ce qu'on pensait, les deux premiers axes ne suffisent pas à identifier distinctement chaque groupe. 
+L'apport de l'axe 3 le permet cependant, avec toujours le même shéma et la même hypothèse: "iy" semble se distinguer par sa caractéristique de son aigu. Néanmoins, on ne peut ici pas distinguer nos jumeaux qui restent toujours superposés.
+
+Pour finir l'analyse de ce modèle, on se concentre sur la partie AUC:
 ```{r}
-# --- Prédictions sur les données d'entraînement ---
-pred_train <- predict(modele_afd)$class
-confusion_train <- table(Réel = train_afd$g, Prédit = pred_train)
+# Probabilités postérieures sur le train
+proba_train <- predict(modele_afd)$posterior  # matrice n × K
 
-# --- Validation croisée LOO ---
-modele_afd_cv <- lda(g ~ ., data = train_afd, CV = TRUE)
-confusion_cv <- table(Réel = train_afd$g, Prédit = modele_afd_cv$class)
+# Noms des classes
+classes <- colnames(proba_train)
 
-# --- Calcul des métriques ---
-# Taux d'erreur global
-err_train <- mean(pred_train != train_afd$g)
-err_afd_cv <- mean(modele_afd_cv$class != train_afd$g)  # <-- ajouté pour le tableau comparatif
+# Palette de couleurs
+couleurs <- RColorBrewer::brewer.pal(length(classes), "Set1")
 
-# Erreurs par classe pour BER
-erreurs_par_classe <- diag(1 - prop.table(
-  table(train_afd$g, modele_afd_cv$class),
-  margin = 1
-))
-BER <- mean(erreurs_par_classe)
+# Initialisation du graphique
+plot(NULL, xlim = c(1, 0), ylim = c(0, 1),
+     xlab = "Spécificité (1 - FPR)",
+     ylab = "Sensibilité (TPR)",
+     main = "Courbes ROC — AFD (one-vs-rest)")
+abline(a = 1, b = -1, lty = 2, col = "grey60")  # diagonale
 
-# --- Tableau des performances AFD ---
-tab_perf_afd <- data.frame(
-  Métrique = c("Taux d'erreur (train)",
-               "Taux d'erreur (CV-LOO)",
-               "BER (CV-LOO)"),
-  Valeur   = paste0(round(c(err_train, err_afd_cv, BER) * 100, 2), "%")
-)
+auc_values <- numeric(length(classes))
+names(auc_values) <- classes
 
-# --- Affichage avec kable ---
-kbl(tab_perf_afd,
-    caption = "Taux d'erreur — AFD",
-    col.names = c("Métrique", "Valeur")) |>
-  kable_styling(bootstrap_options = c("striped", "hover"),
-                full_width = FALSE)
-               
+for (i in seq_along(classes)) {
+  cl <- classes[i]
+ 
+  # Variable binaire : 1 si appartient à la classe cl, 0 sinon
+  binary_response <- as.integer(y_train == cl)
+ 
+  roc_obj <- roc(binary_response, proba_train[, cl], quiet = TRUE)
+ 
+  plot(roc_obj, add = TRUE, col = couleurs[i], lwd = 2)
+ 
+  auc_values[i] <- auc(roc_obj)
+}
+
+# Légende avec AUC
+legend("bottomright",
+       legend = paste0(classes, " (AUC = ", round(auc_values, 3), ")"),
+       col    = couleurs,
+       lwd    = 2,
+       bty    = "n",
+       cex    = 0.85)
 ```
+Le résultat est encore meilleur que pour la sPLS-DA, on a le premier groupe où le modèle à 100% de chance de classer correctement chaque phonème tandis que pour les jumeaux, la performance de prédiction augmente de plus d'un point en moyenne.
 
-Le modèle AFD présente un taux d’erreur de 5,6 % sur les données d’entraînement, ce qui reflète une très bonne capacité à classer correctement les individus connus. Lors de la validation croisée Leave-One-Out (LOO), le taux d’erreur augmente légèrement à 6,98 %, ce qui reste faible et indique une bonne généralisation du modèle sur des données non vues. Le taux d’erreur équilibré (BER) de 7,66 % montre que la performance est homogène entre les différentes classes, et qu’aucune catégorie n’est particulièrement sous- ou sur-prédite. Globalement, ces résultats confirment que l’AFD fournit des performances solides et stables, même en présence d’hétérogénéité des matrices de covariance.
+
 
 # 5/ Comparaison des modèles
 
@@ -845,149 +871,152 @@ kbl(tab_comparatif,
 
 L’analyse comparative des différents modèles de classification met en évidence des compromis entre performance prédictive et réduction de dimension.
 
-Le modèle PLS-DA complet, utilisant l’ensemble des 256 variables, présente une erreur de validation croisée de 8,28 % et un BER de 9,75 %. Il constitue une référence en termes de performance, mais reste peu interprétable en raison du grand nombre de variables mobilisées.
+Le modèle PLS-DA complet, utilisant l’ensemble des 256 variables, présente une erreur de validation croisée de 8,28 % et un BER de 9,77 %. Il constitue une référence en termes de performance, mais reste peu interprétable en raison du grand nombre de variables mobilisées.
 
-La version réduite du PLS-DA, basée sur un critère de sélection a posteriori (VIP > 1), permet de diminuer fortement le nombre de variables (49 variables) tout en conservant des performances proches (erreur CV de 8,66 % et BER de 10,00 %). Ce modèle offre ainsi un bon compromis entre simplicité et efficacité, au prix d’une légère dégradation des performances.
+La version réduite du PLS-DA, basée sur un critère de sélection a posteriori (VIP > 1), permet de diminuer fortement le nombre de variables (49 variables) tout en conservant des performances proches (erreur CV de 8,67 % et BER de 10,09 %). Ce modèle offre ainsi un bon compromis entre simplicité et efficacité, au prix d’une légère dégradation des performances.
 
-Le modèle sPLS-DA, qui intègre directement la sélection de variables via le paramètre keepX, retient 101 variables. Il affiche des performances similaires au PLS-DA complet (erreur CV de 8,17 % et BER de 9,93 %), tout en réduisant le nombre de variables. Cette approche apparaît donc comme un compromis intéressant, combinant sélection intégrée et bonne capacité prédictive.
+Le modèle sPLS-DA, qui intègre directement la sélection de variables via le paramètre keepX, retient 101 variables. Il affiche des performances similaires au PLS-DA complet (erreur CV de 8,14 % et BER de 9,87 %), tout en réduisant le nombre de variables. Cette approche apparaît donc comme un compromis intéressant, combinant sélection intégrée et bonne capacité prédictive. Cette version est également préférée au modèle avec sélection à postériori car il présente malgré tout un léger biais étant donné qu'on sélectionne des variables sur un modèle déjà existant.
 
 Enfin, le modèle Analyse Factorielle Discriminante (AFD) se distingue par les meilleures performances globales, avec une erreur de validation croisée de 6,98 % et un BER de 7,66 %, tout en utilisant seulement 4 composantes. Ces résultats suggèrent que la structure des données est globalement bien captée par une méthode linéaire classique.
 
 
-```{r, results='hide',echo=FALSE}
-auc.plsda <- auroc(plsda, roc.comp = 5)
-auc.plsda <- auroc(modele_reduit, roc.comp = 5)
-auc.splsda <- auroc(modele_splsda, roc.comp = 5)
-```
+Un aspect important dans la comparaison de ces modèles est l’analyse des courbes ROC qui montre des performances très similaires entre les différents modèles, indiquant une capacité de discrimination comparable. Cela confirme les résultats obtenus à partir des taux d’erreur et du BER.
 
-
-
-```{r}
-# Probabilités postérieures sur le train
-proba_train <- predict(modele_afd)$posterior  # matrice n × K
-
-# Noms des classes
-classes <- colnames(proba_train)
-
-# Palette de couleurs
-couleurs <- RColorBrewer::brewer.pal(length(classes), "Set1")
-
-# Initialisation du graphique
-plot(NULL, xlim = c(1, 0), ylim = c(0, 1),
-     xlab = "Spécificité (1 - FPR)",
-     ylab = "Sensibilité (TPR)",
-     main = "Courbes ROC — AFD (one-vs-rest)")
-abline(a = 1, b = -1, lty = 2, col = "grey60")  # diagonale
-
-auc_values <- numeric(length(classes))
-names(auc_values) <- classes
-
-for (i in seq_along(classes)) {
-  cl <- classes[i]
- 
-  # Variable binaire : 1 si appartient à la classe cl, 0 sinon
-  binary_response <- as.integer(y_train == cl)
- 
-  roc_obj <- roc(binary_response, proba_train[, cl], quiet = TRUE)
- 
-  plot(roc_obj, add = TRUE, col = couleurs[i], lwd = 2)
- 
-  auc_values[i] <- auc(roc_obj)
-}
-
-# Légende avec AUC
-legend("bottomright",
-       legend = paste0(classes, " (AUC = ", round(auc_values, 3), ")"),
-       col    = couleurs,
-       lwd    = 2,
-       bty    = "n",
-       cex    = 0.85)
-```
-
-L’analyse des courbes ROC montre des performances très similaires entre les différents modèles, indiquant une capacité de discrimination comparable. Cela confirme les résultats obtenus à partir des taux d’erreur et du BER.
-
-Bien que la sPLS-DA offre une sélection de variables intégrée et une meilleure robustesse théorique, nous retenons l'AFD comme modèle final. Avec un taux d'erreur de 6.98% et un BER de 7.66%, elle surpasse les autres méthodes. L'hétérogénéité des matrices de covariance (test de Box-M) et la haute dimensionnalité sont compensées par la taille importante de notre échantillon (n=3340 en train), permettant à l'AFD de capturer des nuances discriminantes que les modèles réduits ignorent.
 
 # 6/ Validation sur l’échantillon test
 
-Après comparaison des modèles sur l’échantillon d’apprentissage, le modèle AFD a été retenu pour sa performance optimale. Nous allons ainsi évaluer sa performance sur l’échantillon test afin de confirmer sa capacité de discrimination et la robustesse des résultats obtenus.
+On décide d'appliquer la validation du modèle sur l'échantillon test uniquement pour la sPLS-DA et l'afd. Pour le premier car il est meilleur que les deux modèles le précédent dans sa catégorie et pour l'AFD car il présente les meilleurs performances en terme d'erreurs.
 
+## modèle sPLS-DA
+```{r}
+# Prédictions 
+pred_splsda  <- predict(modele_splsda, newdata = X_test)
+classes_test <- pred_splsda$class$max.dist[, ncol(pred_splsda$class$max.dist)]
+```
+```{r}
 
-```{r, warning=FALSE, message=FALSE}
+# Matrice de confusion 
+classes_test   <- factor(classes_test, levels = c("aa", "ao", "dcl", "iy", "sh"))
+y_test_factor  <- factor(y_test,       levels = c("aa", "ao", "dcl", "iy", "sh"))
+
+confusion_test <- table(Réel = y_test_factor, Prédit = classes_test)
+df_conf        <- as.data.frame.matrix(confusion_test)
+
+colnames(df_conf) <- c("aa", "ao", "dcl", "iy", "sh")
+
+df_conf |>
+  tibble::rownames_to_column("Réel / Prédit") |>
+  kbl(caption = "Matrice de confusion — sPLS-DA sur l'échantillon test",
+      col.names = c("Réel / Prédit", "aa", "ao", "dcl", "iy", "sh"),
+      align = "c") |>
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE,
+                position = "center") |>
+  add_header_above(c(" " = 1, "Classe prédite" = 5)) |>
+  column_spec(1, bold = TRUE)
+```
+Il y a uniquement pour le phonème "aa" que le modèle se trompe. Il a bon dans uniquement 58.5% des cas (103/176), on pouvait s'attendre à un tel résultat étant donné que notre modèle avait plus du mal à identifier clairement les jumeaux.
+Pour les autres, et notamment pour "sh","iy" et "dcl" on est sur une prédiction de plus de 97% pour chaque ce qui est très positif.
+```{r}
+# Taux d'erreur & BER
+err_splsda <- mean(classes_test != y_test)
+
+erreurs_par_classe_test <- diag(1 - prop.table(table(y_test, classes_test), margin = 1))
+BER_splsda <- mean(erreurs_par_classe_test)
+
+# AUC multiple
+prob_matrix <- pred_splsda$predict[, , ncol(pred_splsda$predict)]
+
+roc_splsda <- multiclass.roc(
+  response  = y_test,
+  predictor = prob_matrix,
+  quiet     = TRUE
+)
+auc_splsda <- round(auc(roc_splsda), 3)
+```
+
+# pour l'AFD
+```{r}
 test_afd <- data.frame(X_test, g = y_test)
 
-# Prédiction des classes sur le test
-pred_test <- predict(modele_afd, newdata = test_afd)$class
+# Prédictions 
+pred_afd     <- predict(modele_afd, newdata = test_afd)
+pred_test    <- pred_afd$class
+prob_afd  <- pred_afd$posterior  
+```
 
-# Confusion matrix
+```{r}
+# Matrice de confusion 
 confusion_test <- table(Réel = test_afd$g, Prédit = pred_test)
-confusion_test
 
-# Taux d'erreur global
-err_test <- mean(pred_test != test_afd$g)
-
-# BER (Balanced Error Rate)
-erreurs_par_classe_test <- diag(1 - prop.table(table(test_afd$g, pred_test), margin = 1))
-BER_test <- mean(erreurs_par_classe_test)
-
-
-tab_perf_test <- data.frame(
-  Métrique = c("Taux d'erreur (test)", "BER (test)"),
-  Valeur   = paste0(round(c(err_test, BER_test) * 100, 2), "%"))
-
-kbl(tab_perf_test,
-    caption = "Taux d'erreur et BER — AFD sur l’échantillon test",
-    col.names = c("Métrique", "Valeur")) |>
+as.data.frame.matrix(confusion_test) |>
+  tibble::rownames_to_column("Réel \\ Prédit") |>
+  kbl(caption = "Matrice de confusion — AFD sur l'échantillon test",
+      align = "c") |>
   kable_styling(bootstrap_options = c("striped", "hover"),
-                full_width = FALSE)
+                full_width = FALSE) |>
+  add_header_above(c(" " = 1, "Classe prédite" = ncol(confusion_test))) |>
+  column_spec(1, bold = TRUE)
+```
+On a une amélioration pour la spécification de la classe "aa", on passe à 73.3% de valeurs correctement prédites. Cependant, le phonème "ao" est moins bien capté que précédement (84.8% contre 94.3%), de même pour "dcl" (perte de 0.5%) mais "iy" est preque systématiquement parfait. Et pour "sh", on atteint un taux de bonne classification de 100%.
 
-prob_test <- predict(modele_afd, newdata = test_afd)$posterior[,2]  # probabilité classe positive
+```{r}
+# Taux d'erreur & BER 
+err_afd <- mean(pred_test != test_afd$g)
 
-roc_test <- roc(test_afd$g, prob_test)
-plot(roc_test, main = "ROC AFD - Échantillon test")
-cat("AUC test :", round(auc(roc_test),3), "\n")
+erreurs_par_classe_test <- diag(1 - prop.table(table(test_afd$g, pred_test), margin = 1))
+BER_afd <- mean(erreurs_par_classe_test)
+
+# AUC multiclasse 
+roc_afd <- multiclass.roc(
+  response  = y_test,
+  predictor = prob_afd,
+  quiet     = TRUE
+)
+
+auc_afd <- round(auc(roc_afd), 3)
+
 ```
 
-Le modèle AFD retenu a été validé sur l’échantillon test. La matrice de confusion montre que la plupart des phonèmes sont parfaitement discriminés, avec seulement quelques confusions entre aa et ao (47 et 39 erreurs respectivement). L’erreur globale observée est de 8,04 % est faible et montre la performance du modèle, tandis que le BER s’élève à 9,02 %, indiquant une bonne performance globale et une discrimination homogène entre les classes malgré quelques confusions. La courbe ROC du modèle AFD sur l’échantillon test montre une capacité de discrimination élevée, avec un AUC de 0,873 pour la distinction binaire entre aa et ao (les classes les plus confondues).La forme de la courbe confirme que le modèle possède une bonne sensibilité et spécificité, ce qui valide ses performances observées sur l’échantillon test.
+## comparaison finale
+```{r}
+# Tableau comparatif AFD vs sPLS-DA 
+tab_comparatif <- data.frame(
+  Métrique = c("Taux d'erreur (test)", "BER (test)", "AUC (test)"),
+  AFD      = c(paste0(round(err_afd    * 100, 2), "%"),
+               paste0(round(BER_afd    * 100, 2), "%"),
+               as.character(auc_afd)),
+  sPLS_DA  = c(paste0(round(err_splsda * 100, 2), "%"),
+               paste0(round(BER_splsda * 100, 2), "%"),
+               as.character(auc_splsda))
+)
 
-
-```{r, message=FALSE, warning=FALSE, results='hide'}
-# Probabilités prédictes pour chaque classe sur l'échantillon test
-prob_test <- predict(modele_afd, newdata = test_afd)$posterior
-
-# Classes réelles
-y_test_factor <- factor(test_afd$g)
-
-# Liste pour stocker les AUC par classe
-auc_list <- list()
-
-classes <- colnames(prob_test)
-
-# Couleurs pour les courbes
-colors <- rainbow(length(classes))
-
-# Initialiser le plot avec la première classe
-first_cls <- classes[1]
-y_bin <- factor(ifelse(y_test_factor == first_cls, 1, 0), levels = c(0,1))
-roc_obj <- roc(response = y_bin, predictor = prob_test[, first_cls], direction = "<", quiet = TRUE)
-plot(roc_obj, col = colors[1], main = "ROC one-vs-rest superposés")
-auc_list[[first_cls]] <- auc(roc_obj)
-
-# Ajouter les autres classes
-for (i in 2:length(classes)) {
-  cls <- classes[i]
-  y_bin <- factor(ifelse(y_test_factor == cls, 1, 0), levels = c(0,1))
-  roc_obj <- roc(response = y_bin, predictor = prob_test[, cls], direction = "<")
-  auc_list[[cls]] <- auc(roc_obj)
-  lines(roc_obj, col = colors[i])
-}
-
-# Ajouter une légende avec les AUC
-legend("bottomright", legend = paste(classes, "AUC =", round(unlist(auc_list), 3)),
-       col = colors, lwd = 2)
+kbl(tab_comparatif,
+    caption   = "Comparaison des performances — AFD vs sPLS-DA (échantillon test)",
+    col.names = c("Métrique", "AFD", "sPLS-DA"),
+    align     = c("l", "c", "c")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) |>
+  add_header_above(c(" " = 1, "Modèles" = 2)) |>
+  column_spec(2, bold = TRUE, color = "#534AB7") |>
+  column_spec(3, bold = TRUE, color = "#0F6E56") |>
+  row_spec(3, bold = TRUE)
 ```
-La courbe ROC globale (en noir et blanc) montre que le modèle a du mal à distinguer certains phonèmes très proches, comme ‘aa’ et ‘ao’ (AUC = 0,873). Par contre, l’analyse One-vs-Rest (en couleur) montre que le modèle fonctionne très bien sur les autres phonèmes. Les phonèmes ‘iy’ et ‘sh’ sont parfaitement séparés (AUC = 1), ce qui indique que les erreurs de classification sont rares et localisées, sans remettre en cause la fiabilité générale du modèle.
+Les deux modèles sont comparables entre eux au niveau de l'erreur globale et de l'AUC (0.05 est négligeable). Mais l'afd est légèrement meilleur au niveau de l'erreur entre les classes car la sPLS-DA privélégie "ao" au détriment de "aa".
+
+Le choix entre ces deux modèles se fera donc si on a une préférence pour la sélection d'un ou plusieurs phonèmes.
 
 # 7/ Synthèse finale
+L’objectif de ce projet était de comparer différentes méthodes de classification afin de discriminer cinq phonèmes à partir de données spectrales de grande dimension.
 
-Parmi les modèles testés, à savoir le PLS-DA complet, le PLS-DA réduit, la sPLS-DA et l’AFD, c’est le modèle AFD qui a été retenu pour l’évaluation finale sur l’échantillon test. Il utilise l’ensemble des 256 variables et quatre axes discriminants, sans sélection préalable. Ses performances sont les meilleures du tableau comparatif, avec un taux d’erreur en validation croisée d’environ 6,98 % et un BER de 7,66 %, confirmant la robustesse de la classification. L’analyse exploratoire par ACP, bien qu’utile pour visualiser la structure générale des données, n’était pas suffisamment discriminante pour séparer efficacement certains phonèmes proches, comme “aa” et “ao”. La validation sur l’échantillon test montre que l’AFD sépare très efficacement les phonèmes, tout en permettant une interprétation claire des axes discriminants et en reflétant fidèlement la structure des données sans risque majeur de surapprentissage. En résumé, l’AFD constitue le meilleur compromis entre performance, robustesse et interprétabilité, et c’est sur ce modèle que repose l’analyse finale.
+L’analyse exploratoire par ACP a permis de mettre en évidence la structure des données et les proximités entre certains phonèmes, notamment entre "aa" et "ao", qui apparaissent difficilement séparables.
+
+Plusieurs modèles supervisés ont ensuite été mis en œuvre : PLS-DA, PLS-DA réduit, sPLS-DA et AFD. Les résultats montrent que l’ensemble des méthodes offre de bonnes performances de classification, avec des taux d’erreur relativement faibles et des AUC élevées.
+
+La PLS-DA complète fournit de bonnes performances mais reste peu interprétable en raison du grand nombre de variables. Les versions avec sélection de variables (PLS-DA réduit et sPLS-DA) permettent de simplifier le modèle tout en conservant des performances proches, ce qui améliore la lisibilité et limite le risque de surapprentissage.
+
+L’AFD se distingue par des meilleures performances globales, avec le taux d’erreur le plus faible. Toutefois, certaines hypothèses de ce modèle ne sont pas pleinement respectées dans nos données, notamment la normalité des variables et l’homogénéité des matrices de covariance (hétéroscédasticité). Dans ce contexte, une analyse discriminante quadratique (QDA) serait théoriquement plus appropriée. Néanmoins, ne disposant pas des connaissances nécessaires pour l’implémenter correctement, cette approche n’a pas été explorée dans ce rapport. Elle constituerait cependant une piste intéressante afin de confirmer la supériorité du modèle retenu.
+
+Au regard des résultats, les deux modèles sont pertinent dans ce contexte. Toutefois, la sPLS-DA reste plus adaptée aux données de grande dimension, notamment lorsque la sélection de variables est un enjeu important.
+
+Enfin, l’ensemble des modèles met en évidence une difficulté persistante à distinguer certains phonèmes proches, ce qui reflète davantage une réalité linguistique qu’une limite des méthodes utilisées.
