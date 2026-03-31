@@ -216,9 +216,9 @@ fviz_eig(acp,
 
 L’analyse en composantes principales a produit 256 composantes principales, mais les premières concentrent l’essentiel de l’information :
 
--   La première composante principale (Comp 1) explique 55 % de la variance totale des données.
--   Avec les deux premières composantes, on retient déjà 70 % de l’information, ce qui permet de visualiser la majorité de la structure des données sur le plan.
--   Les composantes suivantes expliquent progressivement moins de variance, chacune apportant moins de 5 % à la variance totale.
+-   La première composante principale (Comp 1) explique 55% de la variance totale des données.
+-   Avec les deux premières composantes, on retient déjà 70% de l’information, ce qui permet de visualiser la majorité de la structure des données sur le plan.
+-   Les composantes suivantes expliquent progressivement moins de variance, chacune apportant moins de 5% à la variance totale.
 
 Cette répartition indique qu’il est possible de réduire la dimension des 256 variables. Nous avons choisi de représenter les données sur le plan des deux premières composantes, car elles expliquent 70 % de la variance totale et permettent d’observer les regroupements naturels des phonèmes, tout en conservant la majeure partie de l’information. De plus, conserver uniquement les deux premières dimensions nous permet de visualiser l'acp sur un plan en 2 dimensions, beaucoup plus facile à comprendre.
 
@@ -349,7 +349,7 @@ plotLoadings(plsda, comp = 4, method = 'mean', contrib = 'max')
 
 L’examen des contributions individuelles révèle que le phonème "sh" (en rose) domine largement la formation de la première composante principale. Une grande majorité des variables spectrales (notamment celles avec des indices élevés comme $x.100$ à $x.245$) présentent des coefficients négatifs importants, ce qui explique pourquoi ce phonème se projette à l'extrémité opposée des autres groupes sur l'axe 1. À l'inverse, les phonèmes comme "aa" ou "ao" contribuent de manière beaucoup plus marginale et hétérogène à cette dimension. Cette visualisation confirme que la Comp 1 agit principalement comme un descripteur de contraste entre les sons fricatifs (comme le "sh") et les autres catégories vocales, en mettant en évidence les sons plus intenses du jeu de données. Il est donc fortement probable que la différence entre les phonèmes ayant une participation marginale se fasse sur la spécification des axes 3 et 4.
 
-Pour les trois autres axes, ont une majeure partie de la contribution faite par "sh" de manière sytématique. La différence avec la première dimension est que cette fois, "iy" et "aa" semblent plus participer à la spécification de chacun donc il semblerait qu'une différence visuelle apparaisse entre ces deux phonèmes.
+Pour les trois autres axes, une majeure partie de la contribution est systématiquement faite par "sh". La différence avec la première dimension est que cette fois, "iy" et "aa" semblent plus participer à la spécification de chacun donc il semblerait qu'une différence visuelle apparaisse entre ces deux phonèmes.
 
 On sait désormais comment sont caractériser les axes et quels phonèmes y contribuent. Il reste donc à savoir comment ils sont représentés visuellement.
 ```{r}
@@ -387,8 +387,8 @@ sum(ldaVIP > 1)
 
 Le VIP (Variable Importance in Projection) mesure la contribution de chaque variable à la discrimination entre les groupes. La règle classique est :
 
--VIP \> 1 → variable importante, à conserver
--VIP ≤ 1 → variable peu discriminante, potentiellement à écarter
+- VIP \> 1 → variable importante, à conserver
+- VIP ≤ 1 → variable peu discriminante, potentiellement à écarter
 
 Au vu des résultats, on a plus de 75% des variables qui se situent en dessous du seuil critique pour seulement 49 (sur 256) situées au dessus. On a donc une majeure partie de nos données qui ne contribuent que très peu à la discrimination.
 
@@ -416,7 +416,7 @@ plot(perf_reduit,
      legend.position = "horizontal")
 ```
 Comparé au modèle complet, le taux d'erreur à l'origine est plus faible (environ 27% contre 40). On a un résidu qui reste autour de 10% donc les modèles sont plutôt comparables mais la différence est qu'ici les trois courbes se rejoignent donc la sélection de variables a permis de clarifier la structure des classes. Malgré une chute des erreurs très rapide (en 3 composantes on est presque à 10%), les courbes se stabilisent un peu plus tard, vers la 5 ou 6ème composante.
-A performances comparables, on priviligiera donc le modèle réduit car le critère de parcimonie est privilégié, ce qui permet de réduire le risque de sur apprentissage et améliore l'interprétabilité.
+A performances comparables, on priviligiera donc le modèle réduit car le critère de parcimonie est privilégié, ce qui permet de réduire le risque de sur-apprentissage et améliore l'interprétabilité.
 
 On regarde maintenant le nombre de composantes à conserver:
 ```{r}
@@ -433,7 +433,7 @@ kbl(tab_choice2,
   kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
 ```
-Par validation croisée, modèle est déjà plus en accord avec lui même entre chaque ".dist".
+Par validation croisée, ce modèle est déjà plus en accord avec lui même entre chaque ".dist".
 
 ```{r}
 # Sélection du nombre de composantes
@@ -572,7 +572,7 @@ On a ensuite un nombre constant entre les dimensions 3,4 et 5, ce qui peut s'exp
 Dans les dernières composantes, le modèle semble essayer de trouver autre chose pour différencier les variables en repartant d'un groupe de même amplitude qu'en dimension 1.
 
 
-On détermine le nombre de composantes optimales.
+On détermine le nombre de composantes optimales:
 ```{r}
 perf_splsda <- perf(
   modele_splsda,
@@ -696,6 +696,7 @@ plotIndiv(modele_splsda,
 auc.splsda <- auroc(modele_splsda, roc.comp = 5)
 ```
 Au niveau des AUC, on est sur des performances preque parfaite pour le premier groupe précédement observé avec des AUC de 0.999. Tandis que pour les jumeaux, on reste dans les mêmes standards, autour de 0.96/0.97. 
+
 ## 4.4 AFD
 
 L’Analyse Factorielle Discriminante permet de synthétiser l’information contenue dans nos variables explicatives afin de maximiser la séparation entre les groupes. Nous présentons ci-dessous le modèle complet et la proportion de variance expliquée par chaque axe discriminant.
@@ -735,7 +736,7 @@ kbl(tab_variance,
            bold = TRUE)
 ```
 On voit tout de suite que cette méthode semble encore plus efficace que les méthodes de PLS-DA car avec seulement 3 dimensions, on capte presque la totalité de l'information.
-Comme précédemment, l'axe 1 explique la majeure partie de l'information, ce qui montre l'importance du signal (en hertz) dans l'identification des phonèmes. Couplée à la deuxième dimensions, elles captent 87% de l'information ce qui suffit pour obtenir une représentation graphique compréhensible. 
+Comme précédemment, l'axe 1 explique la majeure partie de l'information, ce qui montre l'importance du signal (en hertz) dans l'identification des phonèmes. Couplée à la deuxième dimension, elles captent 87% de l'information ce qui suffit pour obtenir une représentation graphique compréhensible. 
 
 
 Le plan des individus obtenu par l’AFD permet de visualiser clairement la séparation entre les groupes sur les deux premiers axes discriminants:
@@ -822,6 +823,18 @@ Le résultat est encore meilleur que pour la sPLS-DA, on a le premier groupe où
 
 
 # 5/ Comparaison des modèles
+```{r, echo=FALSE}
+modele_afd_cv <- lda(g ~ ., data = train_afd, CV = TRUE)
+
+# Taux d'erreur CV
+err_afd_cv <- mean(modele_afd_cv$class != train_afd$g)
+
+# BER CV
+erreurs_par_classe_cv <- diag(1 - prop.table(
+  table(train_afd$g, modele_afd_cv$class), margin = 1))
+BER_afd_cv <- mean(erreurs_par_classe_cv)
+```
+
 
 ```{r}
 err_plsda_complet <- perf_plsda$error.rate$overall[5, "max.dist"]
@@ -853,7 +866,7 @@ tab_comparatif <- data.frame(
   BER         = round(c(err_ber_complet,
                         err_ber_reduit,
                         err_ber_splsda,
-                        BER) * 100, 2),
+                        BER_afd_cv) * 100, 2),
   Sélection   = c("Aucune",
                   "(VIP > 1)",
                   "(keepX)",
@@ -866,7 +879,7 @@ kbl(tab_comparatif,
                   "Sélection variables")) |>
   kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
- 
+
 ```
 
 L’analyse comparative des différents modèles de classification met en évidence des compromis entre performance prédictive et réduction de dimension.
@@ -879,7 +892,6 @@ Le modèle sPLS-DA, qui intègre directement la sélection de variables via le p
 
 Enfin, le modèle Analyse Factorielle Discriminante (AFD) se distingue par les meilleures performances globales, avec une erreur de validation croisée de 6,98 % et un BER de 7,66 %, tout en utilisant seulement 4 composantes. Ces résultats suggèrent que la structure des données est globalement bien captée par une méthode linéaire classique.
 
-
 Un aspect important dans la comparaison de ces modèles est l’analyse des courbes ROC qui montre des performances très similaires entre les différents modèles, indiquant une capacité de discrimination comparable. Cela confirme les résultats obtenus à partir des taux d’erreur et du BER.
 
 
@@ -887,7 +899,7 @@ Un aspect important dans la comparaison de ces modèles est l’analyse des cour
 
 On décide d'appliquer la validation du modèle sur l'échantillon test uniquement pour la sPLS-DA et l'afd. Pour le premier car il est meilleur que les deux modèles le précédent dans sa catégorie et pour l'AFD car il présente les meilleurs performances en terme d'erreurs.
 
-## modèle sPLS-DA
+## 6.1 Modèle sPLS-DA
 ```{r}
 # Prédictions 
 pred_splsda  <- predict(modele_splsda, newdata = X_test)
@@ -935,7 +947,7 @@ roc_splsda <- multiclass.roc(
 auc_splsda <- round(auc(roc_splsda), 3)
 ```
 
-# pour l'AFD
+## 6.2 Modèle AFD
 ```{r}
 test_afd <- data.frame(X_test, g = y_test)
 
@@ -978,7 +990,7 @@ auc_afd <- round(auc(roc_afd), 3)
 
 ```
 
-## comparaison finale
+## 6.3 Comparaison finale
 ```{r}
 # Tableau comparatif AFD vs sPLS-DA 
 tab_comparatif <- data.frame(
