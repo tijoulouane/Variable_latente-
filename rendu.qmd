@@ -323,24 +323,29 @@ On voit bien qu'au delà de 5 composantes, il y a très peu de gains d'informati
 
 On peut désormais s'intéresser à la composition de graphique de notre modèle:
 
-
-On s'intéresse maintenant à la spécification de chaque axe.
+On s'intéresse d'abord à la spécification de chaque axe.
 ```{r, warning=FALSE}
+par(mfrow=c(1,2))
 plotVar(plsda, comp = 1:2, var.names = FALSE)
+plotVar(plsda, comp = 3:4, var.names = FALSE)
 ```
 
 On représente ici l'ensemble variables sur le cercle de corrélation des deux premières composantes. Sur le même principe que pour l'acp, les variables proches du bord du cercle contribuent fortement, celles proches du centre sont peu discriminantes.
 
-L'intérêt du cercle de corrélation est d’analyser la relation entre les 256 variables initiales (les fréquences du log-périodogramme) et les deux premières composantes principales.
+Au niveau de la spécification des axes, on peut émettre la même hypothèse que pour l'ACP avec l’axe 1 qui reflète l’intensité globale du signal, tandis que l’axe 2 différencie les groupes de fréquence. On observe que la plupart des variables se situent très proches du cercle extérieur, indiquant que ces deux composantes capturent efficacement la variabilité de nos données. On notera que les points se suivent tous créant une sorte de "chaîne", révélant une forte corrélation entre fréquences adjacentes, ce qui est cohérent avec la nature spectrale des signaux audio. Enfin, la proximité des points au cercle de corrélation témoigne d’une excellente qualité de projection sur le premier plan factoriel,
+Sur le plan des axes 3 et 4, on remarque toujours le mouvement de "chaîne" mais cette fois, plutôt en largeur, montrant que l'axe 3 spécifie une nouvelle différence entre les phonèmes. Sur l'axe 4, peu d'information semble être rapporté vu que les points ne sont que très peu espacés verticalement. La projection des variables sur ces axes est cependant moindre.
+Ces graphiques montrent que les variables sont loin d’être indépendantes, confirmant que des méthodes comme la PLS-DA peuvent exploiter cette colinéarité pour créer des discriminants efficaces.
 
-Au niveau de la spécification des axes, on peut émettre la même hypothèse que pour l'ACP avec l’axe 1 qui reflète l’intensité globale du signal, tandis que l’axe 2 différencie les groupes de fréquence. On observe que la plupart des variables se situent très proches du cercle extérieur, indiquant que ces deux composantes capturent efficacement la variabilité de nos données. On notera que les points se suivent tous créant une sorte de "chaîne", révélant une forte corrélation entre fréquences adjacentes, ce qui est cohérent avec la nature spectrale des signaux audio.
-Ce graphique montre que les variables sont loin d’être indépendantes, confirmant que des méthodes comme la PLS-DA peuvent exploiter cette colinéarité pour créer des discriminants efficaces. Enfin, la proximité des points au cercle de corrélation témoigne d’une excellente qualité de projection sur le premier plan factoriel, malgré la surcharge visuelle due au grand nombre de variables.
-
-```{r}
+```{r, fig.show='hide'}
 plotLoadings(plsda, comp = 1, method = 'mean', contrib = 'max')
+plotLoadings(plsda, comp = 2, method = 'mean', contrib = 'max')
+plotLoadings(plsda, comp = 3, method = 'mean', contrib = 'max')
+plotLoadings(plsda, comp = 4, method = 'mean', contrib = 'max')
 ```
 
 L’examen des contributions individuelles révèle que le phonème "sh" (en rose) domine largement la formation de la première composante principale. Une grande majorité des variables spectrales (notamment celles avec des indices élevés comme $x.100$ à $x.245$) présentent des coefficients négatifs importants, ce qui explique pourquoi ce phonème se projette à l'extrémité opposée des autres groupes sur l'axe 1. À l'inverse, les phonèmes comme "aa" ou "ao" contribuent de manière beaucoup plus marginale et hétérogène à cette dimension. Cette visualisation confirme que la Comp 1 agit principalement comme un descripteur de contraste entre les sons fricatifs (comme le "sh") et les autres catégories vocales, en mettant en évidence les sons plus intenses du jeu de données. Il est donc fortement probable que la différence entre les phonèmes ayant une participation marginale se fasse sur la spécification des axes 3 et 4.
+
+Pour les trois autres axes, ont une majeure partie de la contribution faite par "sh" de manière sytématique. La différence avec la première dimension est que cette fois, "iy" et "aa" semblent plus participer à la spécification de chacun donc il semblerait qu'une différence visuelle apparaisse entre ces deux phonèmes.
 
 On sait désormais comment sont caractériser les axes et quels phonèmes y contribuent. Il reste donc à savoir comment ils sont représentés visuellement.
 ```{r}
@@ -356,6 +361,16 @@ Les ellipses de confiance soulignent néanmoins que chaque phonème possède un 
 
 Le deuxième plan (composante 3 et 4) explique lui 7% de la variance, ce qui confirme notre choix de ne pas prendre au delà de 4 composantes. Ces deux dimensions permettent d'apporter une précision au niveau des 3 groupes se chevauchant dans le plan 1-2. On a désormais le phonème "iy" qui s'écarte totalement des autres pour se retrouver sur la droite (de par la composante 4) tandis qu'une séparation se fait entre "aa" et "ao" par la composante 3. Effectivement, "aa" est située plus en hauteur que "ao". On voit par contre que "sh" et "dcl" ne sont absolument pas expliqués dans ces dimensions.
 Il semblerait donc ici que la composante 3 permette de différencier les sons plus aigus. Pour l'axe 4, on ne peut pas émettre d'hypothèse solide sans avoir accès aux fréquences (en hertz) des différents phonèmes. La seule hypothèse trouvée semble dans la prononciation avec le phonème "aa" qui implique une plus grande ouverture de la bouche 
+
+Dernier point, on regarde la capacité du modèle à capter la bonne classe pour chaque variable.
+
+```{r, results='hide', echo=FALSE}
+auc.plsda <- auroc(plsda, roc.comp = 5)
+```
+Une AUC proche de 1 (l'air sous la courbe) indique une excellente discrimination et donc le phonème associé à chaque variable.
+
+Les courbes ROC confirment l'excellente performance prédictive du modèle, avec des scores AUC (Aire Sous la Courbe) proches de la perfection pour l'ensemble des modèles. 
+On retrouve nos deux groupes qui se distinguent: d'un côté les trois phonèmes qu'on a réussi à identifier visuellement ("sh","iy","dcl") avec une probabilité d'identifier la bonne classe par rapport aux autres de plus de 99%. et de l'autre nos phonèmes "ao" et "aa" avec une AUC autour de 0.96-0.97 ce qui confirme là encore la représentation graphique où on les voyait tout les deux superposés. Si visuellement on avait du mal à disinguer les deux, le modèle ne se trompe en réalité quasiment jamais étant donné qu'au minimum, il classe correctement le phonème écouté dans sa classe associé.
 
 On regarde maintenant si toutes les variables ont une contribution pertinente dans le modèle.
 
@@ -403,10 +418,10 @@ On regarde maintenant le nombre de composantes à conserver:
 ```{r}
 # Extraction de choice.ncomp
 tab_choice2 <- as.data.frame(perf_reduit$choice.ncomp)
-tab_choice2$Critere <- rownames(tab_choice)
-rownames(tab_choice) <- NULL
+tab_choice2$Critere <- rownames(tab_choice2)
+rownames(tab_choice2) <- NULL
 
-tab_choice2 <- tab_choice[, c("Critere", "max.dist", "centroids.dist", "mahalanobis.dist")]
+tab_choice2 <- tab_choice2[, c("Critere", "max.dist", "centroids.dist", "mahalanobis.dist")]
 
 kbl(tab_choice2,
     caption = "Nombre optimal de composantes (PLS-DA réduit, CV)",
@@ -440,11 +455,67 @@ Ici, en combinant les deux approches, on décide d'opter pour 5 composantes car 
 modele_reduit <- mixOmics::plsda(X_reduit, y_train, ncomp = 5)
 ```
 
+On s'intéresse maintenant à la partie graphique comme précédemment. 
+```{r, warning=FALSE}
+plotVar(modele_reduit, comp = 1:2, var.names = FALSE)
+```
+La première représentation (cercle de corrélation des deux premières composantes) est ici légèrement différente de précédemment.
 
-## 4.3 sPLSDA
+On peut cependant émettre les mêmes hypothèses que pour la première PLS-DA avec l'axe 1 qui représente l'intensité du signal et l'axe 2 permet une certaine séparation entre chaque phonème. De plus, tout les points sont proches du bord donc très pertinent pour ces axes.
 
-On décide de faire une deuxième comparaison, de réaliser une sPLS-DA donc un modèle qui cherche à capter uniquement les individus pertinents pour le modèle. On est donc sur une sélection automatique comparé à précédemment.
+```{r}
+plotVar(modele_reduit, comp = 3:4, var.names = FALSE)
+```
+En regardant le cercle pour les composantes 3 et 4, il semblerait qu'on obtienne les mêmes résultats que précédemment, avec une spécification des différents phonèmes sur ces dimensions. Cependant, les points étant au centre du graphe, cette spécification devrait être légère. 
 
+```{r, fig.show='hide'}
+plotVar(modele_reduit, comp = 4:5, var.names = FALSE)
+```
+De même lorsque l'on met en relation la dimension quatre avec la cinquième, on observe des amas de points mais ils sont situés au centre du graph donc il est fort probable que cette dernière dimension n'apporte pas réellement beaucoup d'information.
+
+```{r, fig.show='hide'}
+par (mfrow=c(1,2))
+plotLoadings(modele_reduit, comp = 1, method = 'mean', contrib = 'max')
+plotLoadings(modele_reduit, comp = 2, method = 'mean', contrib = 'max')
+plotLoadings(modele_reduit, comp = 3, method = 'mean', contrib = 'max')
+plotLoadings(modele_reduit, comp = 4, method = 'mean', contrib = 'max')
+plotLoadings(modele_reduit, comp = 5, method = 'mean', contrib = 'max')
+```
+Concernant la spécification de chaque axe, on observe le résultat inverse que pour le premier modèle. C'est principalement le phonème "aa" qui caractérise l'axe 1. "sh" semble totalement absent ici.
+On peut même aller plus loin en disant que sur l'ensemble des dimensions, les phonèmes qui avant étaient superposés semble permettre la spécification de l'ensemble des dimensions. Chaque phonème se comportera alors en accord ou opposition avec les phonemes "aa" et "ao". 
+
+On passe alors à la visualisation graphique du modèle.
+```{r}
+# Visualisation des individus
+plotIndiv(modele_reduit, comp = 1:2, col = c("tomato","skyblue","darkgreen","orange","lightpink"),
+          ellipse = TRUE, legend = TRUE, title = "PLS-DA-reduit (comp 1-2)")
+
+plotIndiv(modele_reduit, comp = 3:4, col = c("tomato","skyblue","darkgreen","orange","lightpink"),
+          ellipse = TRUE, legend = TRUE, title = "PLS-DA-reduit (comp 3-4)")
+
+```
+Les deux premières dimensions permettent ici d'apporter beaucoup plus de nuances. Seuls les phonèmes "aa" et "ao" sont encores superposés mais légèrement moins que sur la première PLS-DA. On conserve toujours 69% de la variance expliquée par ces deux dimensions.
+Pour les deux suivantes, on constate qu'un léger espacement se créer entre nos deux phonèmes superposés mais pas aussi marqué que précédemment. Ce phénomène est peut être dû au fait que dans le graph des erreurs, l'apport entre 3 et 4 dimensions semblait de même amplitude que pour le premier modèle (comparé à comp4-5). L'autre hypothèse est qu'étant donné que le modèle conserve uniquement les variables essentielles, il ne capte pas un faux écart entre ces deux phonèmes, confirmant le fait qu'ils sont très proches phonétiquement et donc durs à distinguer.
+
+On peut supposer que la dimension 5 apporte justement cette précision mais lorsqu'on regarde le plan 3-5 ou 4-5, on n'observe pas de réel changement. L'écart entre les deux se créer systématiquement mais il est très faible donc ils continuent de se superposer en grande partie.
+```{r, fig.show='hide'}
+plotIndiv(modele_reduit, comp = 4:5, col = c("tomato","skyblue","darkgreen","orange","lightpink"),
+          ellipse = TRUE, legend = TRUE, title = "PLS-DA-reduit (comp 4-5)")
+
+```
+
+```{r, results='hide',echo=FALSE}
+auc.reduit <- auroc(modele_reduit, roc.comp = 5)
+```
+Là encore on s'intéresse aux performances du modèle avec l'AUC et là encore, les courbes ROC confirment l'excellente performance prédictive du modèle, avec des scores AUC (Aire Sous la Courbe) proches de la perfection pour l'ensemble des modèles. 
+On retrouve nos deux groupes qui se distinguent: d'un côté les trois phonèmes qu'on a réussi à identifier visuellement ("sh","iy","dcl") et de l'autre nos phonèmes "ao" et "aa" avec une AUC plus faible ce qui confirme là encore la représentation graphique où on les voyait tout les deux superposés. Si visuellement on avait du mal à disinguer les deux, le modèle ne se trompe en réalité quasiment jamais étant donné qu'au minimum, il classe correctement le phonème écouté dans sa classe associé.
+
+
+## 4.3 sPLS-DA
+
+Sur cette deuxième comparaison, on réalise encore une sélection de variables mais cette fois, de manière automatique. On appelle cette méthode une sPLS-DA
+
+ON commence par créer le modèle.
 ```{r,}
 # Modèle sPLS-DA initial avec tous les composantes
 modele_splsda <-  mixOmics::splsda(X_train, y_train, ncomp = 10)
@@ -473,7 +544,31 @@ modele_splsda <- mixOmics::splsda(
   keepX = keepX_optimal
 )
 ```
+```{r}
+#  Préparation des données (on transforme le vecteur en data.frame)
+tab_keepX <- data.frame(
+  Composante = paste("Comp", 1:length(keepX_optimal)),
+  Variables_Selectionnees = as.numeric(keepX_optimal)
+)
 
+# Génération du tableau avec kableExtra
+kbl(tab_keepX, 
+    caption = "Nombre optimal de variables sélectionnées par composante (keepX)",
+    col.names = c("Dimension", "Nombre de variables (keepX)"),
+    align = "cl") |> 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, 
+                position = "center") |>
+  column_spec(1, bold = TRUE, border_right = TRUE)
+```
+Ce modèle se construit selon une méthode de sélection croisée qui vise à trouver le nombre de variables nécessaires pour déterminer au mieux chaque composante.
+La première composante étant la plus importante, on s'attends à ce que ce soit encore elle qui explique la majorité de la variance. Le modèle a donc besoin de beaucoup de variables pour bien différencier chaque phonème.
+Ensuite, on diminue de moitié, indiquant qu'on cherche à déterminer un aspect plus précis pour différencier certains phonèmes (par exmple l'aigu). 
+On a ensuite un nombre constant entre les dimensions 3,4 et 5, ce qui peut s'expliquer par le fait qu'on cherche les derniers petits détails donc on a besoin de groupes équivalents en nombre. 
+Dans les dernières composantes, le modèle semble essayer de trouver autre chose pour différencier les variables en repartant d'un groupe de même amplitude qu'en dimension 1.
+
+
+On détermine le nombre de composantes optimales.
 ```{r}
 perf_splsda <- perf(
   modele_splsda,
@@ -486,14 +581,34 @@ plot(perf_splsda,
      col = color.mixo(5:7),
      sd  = TRUE,
      legend.position = "horizontal")
+```
+A la difference de précédemment et malgré la spécification large de 10 composantes dans le modèle, la fonction arrête automatiquement le grpahique à 5 composantes. C'est parce que la fonction détecte qu'après 5 composantes on ne constate pas de gain significatif. 
 
+cette observation corrobore avec le nombre de variables utilisées pour déterminer chaque axe. En effet, le fait que le modèle est à nouveau besoin d'un échantillon de 50 variables pour la dimension 6 montre en réalité que les différences sont minimes et donc que le modèle cherche à tout prix à en trouver une, quitte à biaiser les résultats.
+
+```{r}
+# Extraction de choice.ncomp
+tab_choice3 <- as.data.frame(perf_splsda$choice.ncomp)
+tab_choice3$Critere <- rownames(tab_choice3)
+rownames(tab_choice3) <- NULL
+
+tab_choice3 <- tab_choice3[, c("Critere", "max.dist", "centroids.dist", "mahalanobis.dist")]
+
+kbl(tab_choice3,
+    caption = "Nombre optimal de composantes (sPLS-DA, CV)",
+    col.names = c("Critère", "max.dist", "centroids.dist", "mahalanobis.dist")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+```
+Logiquement, la sélection croisée indique que le nombre idéal de composante est entre 4 et 5. On regarde donc manuellement, quel apport on a entre chaque.
+
+```{r}
 # Sélection du nombre de composantes
 tab_ncomp <- data.frame(
-  Composantes  = c(4, 5, 10),
+  Composantes  = c(4, 5),
   Erreur_overall = round(c(
     perf_splsda$error.rate$overall[4,  "max.dist"],
-    perf_splsda$error.rate$overall[5,  "max.dist"],
-    perf_splsda$error.rate$overall[10, "max.dist"]
+    perf_splsda$error.rate$overall[5,  "max.dist"]
   ) * 100, 2))
 
 kbl(tab_ncomp,
@@ -502,7 +617,7 @@ kbl(tab_ncomp,
   kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
 ```
-La sPLS-DA atteint un taux d'erreur de 8.3% à 5 composantes, soit des performances équivalentes aux modèles précédents. La convergence est cependant plus lente de part la contrainte de sélection des variables propre à cette méthode. On a malgré tout l'avantage d'intégrer la sélection des variables dans le modèle et non à postériori. À performances égales, la sPLS-DA constitue donc l'approche la plus rigoureuse.
+La sPLS-DA voit une augmentation de presque 1% entre la quatrième et la cinquième composante, ce qui reste importatn. Couplé au fait que le modèle s'arrête à 5, on estime qu'il considère que pour 4 composantes il reste toujours une part de variance à expliquée qui est finalement apportée par la dernière. On peut donc penser que la "mahalanobis.dist" permet d'apporter une nuance concrète entre "aa" et "ao".
 
 ```{r, results='hide'}
 # réentrainement du modèle
@@ -511,11 +626,35 @@ modele_splsda <- mixOmics::splsda(
   ncomp = 5,
   keepX = keepX_optimal)
 ```
-
-```{r, results='hide',echo=FALSE}
-auc.splsda <- auroc(modele_splsda, roc.comp = 5)
+On peut donc s'intéresser à la composition de chaque axe.
+```{r, warning=FALSE}
+par(mfrow=c(1,2))
+plotVar(modele_splsda, comp = 1:2, var.names = FALSE)
+plotVar(modele_splsda, comp = 3:4, var.names = FALSE)
 ```
-Au niveau des AUC, on est sur des performances légèremment meilleurs pour les phonèmes "iy", "sh" et "dcl". Et on a une légère baisse pour les autres mais on reste dans les mêmes indices de grandeurs. La performance du modèle est donc très bonne.
+Sur les premières dimensions, on observe deux groupes biens distincts et très corrélés avec les dimensions (très proches du bord). Comme la différence d'énergie entres les différents types de son vus précédemment est la principale information du signal, on peut émettre la même hypothèse que précedemment: l'axe 1 représente l'intensité et l'axe 2 différencie les groupes de fréquences.
+Ce qui est plus intéressant que précédemment, c'est lorsqu'on regarde les dimensions 3 et 4. On a réellement un apport de ces dimensions avec 3 groupes qui se forment et qui sont plus proches des axes. 
+
+Même lorsqu'on compare chaque dimension avec l'axe 5, on remarque le même processus, avec la création de différents groupes, confirmant l'apport d'informtion de cette dimension.
+
+```{r, fig.show='hide'}
+plotVar(modele_splsda, comp = 4:5, var.names = FALSE)
+```
+
+On voit donc que la sPLS-DA sélectionne vraiment les variables les plus pertinents pour expliquer chaque axe.
+
+```{r, fig.show='hide'}
+plotLoadings(modele_splsda, comp = 1, method = 'mean', contrib = 'max')
+plotLoadings(modele_splsda, comp = 2, method = 'mean', contrib = 'max')
+plotLoadings(modele_splsda, comp = 3, method = 'mean', contrib = 'max')
+plotLoadings(modele_splsda, comp = 4, method = 'mean', contrib = 'max')
+plotLoadings(modele_splsda, comp = 5, method = 'mean', contrib = 'max')
+```
+Concernant la composition des axes du modèle, la réduction du nombre de variables via la procédure sPLS-DA a conduit à une spécialisation marquée des dimensions du modèle.
+
+La première composante agit désormais comme un détecteur quasi exclusif du phonème fricatif "sh". La deuxième composante, quant à elle, se focalise sur le phonème aa, traduisant probablement les indices liés à l'ouverture maximale du conduit vocal (hypothèse déjà énnoncée).
+
+Enfin, les dimensions suivantes (3 à 5) se partagent l'explication des nuances entre "iy", "aa" et "ao". Avec une spécification aussi nette, il est donc fort probable que chaque phonème se retrouve isolé sur le graphe.
 
 ```{r}
 # Plan des individus
@@ -526,10 +665,32 @@ plotIndiv(modele_splsda,
           ellipse = TRUE,
           legend = TRUE,
           title = "sPLS-DA - Plan des individus")
+plotIndiv(modele_splsda,
+          comp = c(3,4),
+          group = y_train,
+          ind.names = FALSE,
+          ellipse = TRUE,
+          legend = TRUE,
+          title = "sPLS-DA - Plan des individus")
 ```
-Visuellement, le plan des individus montre une bonne séparation globale des phonèmes. Un léger chevauchement subsiste entre les classes les plus proches spectralement (aa et ao), ce qui est cohérent avec les observations de l'ensemble de l'analyse. Cette limite visuelle sur le plan 1-2 ne remet pas en cause les performances du modèle : la sPLS-DA optimise la covariance avec les classes Y plutôt que la variance expliquée, et la discrimination peut s'appuyer sur les composantes suivantes. Le modèle reste donc robuste et pertinent pour la tâche de classification.
+Visuellement, on observe toujours la séparation très nette entre "sh" et "dcl" dûe à l'axe 1. L'axe 2 permet ici de distinguer clairements les voyelles des autres sons. Malgré ça, nos deux jumeaux sont toujours superposés. 
+L'axe 3 permet encore une fois d'isolé totalement "iy", confirmant notre hypothèse de spécification par le caractère aigu du phonème. Et l'axe 4 nous permet d'avoir une distinction beaucoup plus marquée que ce qu'on a observé jusque là entre les deux jumeaux. Ces résultats confirment encore une fois l'adéquation du modèle sPLS-DA.
 
-
+L'axe 5 permet ici de confirmer une certaine nuance observée dans l'axe 4, sans être totalement flagrante car "ao" se retrouve en grande partie superposé sur "aa".
+```{r, fig.show='hide'}
+  # Plan des individus
+plotIndiv(modele_splsda,
+          comp = c(4,5),
+          group = y_train,
+          ind.names = FALSE,
+          ellipse = TRUE,
+          legend = TRUE,
+          title = "sPLS-DA - Plan des individus")
+```
+```{r, results='hide',echo=FALSE}
+auc.splsda <- auroc(modele_splsda, roc.comp = 5)
+```
+Au niveau des AUC, on est sur des performances preque parafaite pour le premier groupe observé précédement avec des AUC de 0.999. Tandis que pour les jumeaux, on reste dans les mêmes standards que précédemment, autour de 0.96/0.97.
 
 ## 4.4 AFD
 
